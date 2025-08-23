@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { Search, Plus, Calendar, Users, Loader2 } from 'lucide-react';
+import { Search, Plus, Calendar, Users, Loader2, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { runApi, agentApi, Run, Agent } from '@/lib/api';
+import { mockRunApi, mockAgentApi } from '@/lib/mockApi';
+import { toast } from 'sonner';
 
 interface UXTest {
   id: string;
@@ -29,6 +31,7 @@ export function Dashboard({ onNewTest, onSelectTest }: DashboardProps) {
   const [tests, setTests] = useState<UXTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [useMockData, setUseMockData] = useState(false);
 
   useEffect(() => {
     loadTests();
@@ -39,7 +42,27 @@ export function Dashboard({ onNewTest, onSelectTest }: DashboardProps) {
     setError(null);
     
     try {
-      const runsResponse = await runApi.getAll();
+      // Try real API first, fallback to mock if it fails
+      let runsResponse;
+      let usesMock = false;
+      
+      try {
+        runsResponse = await runApi.getAll();
+      } catch (apiError: any) {
+        console.warn('Real API failed, using mock data:', apiError.message);
+        runsResponse = await mockRunApi.getAll();
+        usesMock = true;
+        setUseMockData(true);
+        
+        // Show info toast only once when switching to mock
+        if (!useMockData) {
+          toast.info('Using mock data', {
+            description: 'Backend is not available. Displaying sample data.',
+            duration: 3000,
+          });
+        }
+      }
+      
       const runs = runsResponse.data;
       
       if (!runs || runs.length === 0) {
@@ -49,7 +72,8 @@ export function Dashboard({ onNewTest, onSelectTest }: DashboardProps) {
       }
 
       const testList: UXTest[] = [];
-      const agentPromises = runs.map(run => agentApi.getByRunId(run.run_id));
+      const api = usesMock ? mockAgentApi : agentApi;
+      const agentPromises = runs.map(run => api.getByRunId(run.run_id));
       
       const agentResponses = await Promise.all(agentPromises);
       
@@ -81,9 +105,22 @@ export function Dashboard({ onNewTest, onSelectTest }: DashboardProps) {
       });
       
       setTests(testList);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading tests:', err);
-      setError('Failed to load tests');
+      
+      // Check if it's a network error (backend not running)
+      if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+        setError('Backend server is not running. Please start the server on port 8000.');
+        toast.error('Cannot connect to backend', {
+          description: 'Please ensure the backend server is running on port 8000',
+          duration: 5000,
+        });
+      } else {
+        setError('Failed to load tests');
+        toast.error('Failed to load tests', {
+          description: err.response?.data?.message || err.message || 'An unexpected error occurred',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -115,15 +152,15 @@ export function Dashboard({ onNewTest, onSelectTest }: DashboardProps) {
   ];
 
   return (
-    <div className="flex h-screen bg-[#FAFAFA]">
+    <div className="flex h-screen bg-gray-50">
       {/* Left Sidebar */}
-      <div className="w-64 bg-white border-r border-[#E3E3E3] flex flex-col">
-        <div className="p-4 border-b border-[#E3E3E3]">
+      <div className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm">
+        <div className="p-4 border-b border-gray-200">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#555] w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input 
-              placeholder="Search" 
-              className="pl-10 bg-[#F3F3F5] border-none"
+              placeholder="Search tests..." 
+              className="pl-10 bg-gray-50 border-gray-200 focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/20 transition-all"
             />
           </div>
         </div>
@@ -136,26 +173,26 @@ export function Dashboard({ onNewTest, onSelectTest }: DashboardProps) {
                 <motion.button
                   key={folder.name}
                   onClick={() => setSelectedFolder(folder.name)}
-                  className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-colors ${
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all duration-200 ${
                     selectedFolder === folder.name 
-                      ? 'bg-[#E9EBEF] text-[#1A1A1A]' 
-                      : 'text-[#555] hover:bg-[#F3F3F5]'
+                      ? 'bg-[#4F46E5]/10 text-[#4F46E5] font-medium' 
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
+                  whileHover={{ x: 2 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  <span>{folder.name}</span>
-                  <span className="text-xs">{folder.count}</span>
+                  <span className="capitalize">{folder.name}</span>
+                  <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">{folder.count}</span>
                 </motion.button>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="p-4 border-t border-[#E3E3E3]">
+        <div className="p-4 border-t border-gray-200">
           <Button 
             onClick={onNewTest}
-            className="w-full bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-xl"
+            className="w-full bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
           >
             <Plus className="w-4 h-4 mr-2" />
             New UX Test
@@ -165,9 +202,9 @@ export function Dashboard({ onNewTest, onSelectTest }: DashboardProps) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        <div className="p-6 border-b border-[#E3E3E3] bg-white">
-          <h1 className="text-[#1A1A1A] mb-2">UX Tests</h1>
-          <p className="text-[#555]">Run AI agents to test user flows and gather insights</p>
+        <div className="p-6 border-b border-gray-200 bg-white">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">UX Tests</h1>
+          <p className="text-gray-600">Run AI agents to test user flows and gather insights</p>
         </div>
 
         <div className="flex-1 p-6 overflow-auto">
@@ -176,27 +213,47 @@ export function Dashboard({ onNewTest, onSelectTest }: DashboardProps) {
               <Loader2 className="w-8 h-8 animate-spin text-[#4F46E5]" />
             </div>
           ) : error ? (
-            <div className="text-center text-[#555] py-8">
-              <p>{error}</p>
-              <Button 
-                onClick={loadTests}
-                className="mt-4"
-                variant="outline"
-              >
-                Retry
-              </Button>
-            </div>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center"
+            >
+              <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
+                <div className="text-3xl">⚠️</div>
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Connection Error</h2>
+              <p className="text-gray-600 mb-6">{error}</p>
+              <div className="space-y-3">
+                <Button 
+                  onClick={loadTests}
+                  className="bg-[#4F46E5] hover:bg-[#4338CA] text-white"
+                >
+                  Retry Connection
+                </Button>
+                <p className="text-sm text-gray-500">
+                  To start the backend, run: <code className="bg-gray-100 px-2 py-1 rounded">cd backend && python main.py</code>
+                </p>
+              </div>
+            </motion.div>
           ) : tests.length === 0 ? (
-            <div className="text-center text-[#555] py-8">
-              <p>No tests found. Create your first test to get started.</p>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center"
+            >
+              <div className="w-24 h-24 bg-[#4F46E5]/10 rounded-full flex items-center justify-center mb-6">
+                <Sparkles className="w-12 h-12 text-[#4F46E5]" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">No tests yet</h2>
+              <p className="text-gray-600 mb-8">Create your first UX test to start gathering insights from AI-powered user simulations.</p>
               <Button 
                 onClick={onNewTest}
-                className="mt-4 bg-[#4F46E5] hover:bg-[#4338CA] text-white"
+                className="bg-[#4F46E5] hover:bg-[#4338CA] text-white shadow-md hover:shadow-lg transition-all"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Create Test
+                Create Your First Test
               </Button>
-            </div>
+            </motion.div>
           ) : (
             <div className="space-y-6">
               {Object.entries(groupedTests).map(([date, dateTests]) => (
@@ -208,30 +265,30 @@ export function Dashboard({ onNewTest, onSelectTest }: DashboardProps) {
                   {dateTests.map((test) => (
                     <motion.div
                       key={test.id}
-                      className="bg-white rounded-xl p-4 border border-[#E3E3E3] shadow-sm hover:shadow-md transition-shadow cursor-pointer mb-4"
+                      className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-lg hover:border-[#4F46E5]/30 transition-all duration-200 cursor-pointer mb-4 group"
                       onClick={() => onSelectTest(test)}
-                      whileHover={{ scale: 1.01 }}
+                      whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.99 }}
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
-                          <h3 className="text-[#1A1A1A] mb-1">{test.title}</h3>
-                          <p className="text-[#555] text-sm">{test.question}</p>
+                          <h3 className="text-gray-900 font-semibold mb-1 group-hover:text-[#4F46E5] transition-colors">{test.title}</h3>
+                          <p className="text-gray-600 text-sm line-clamp-1">{test.question}</p>
                         </div>
-                        <div className="flex items-center gap-2 text-[#555] text-sm">
-                          <div className={`w-2 h-2 rounded-full ${
-                            test.status === 'completed' ? 'bg-green-500' : 
+                        <div className="flex items-center gap-2 text-gray-500 text-sm">
+                          <div className={`w-2 h-2 rounded-full animate-pulse ${
+                            test.status === 'completed' ? 'bg-green-500 animate-none' : 
                             test.status === 'running' ? 'bg-yellow-500' : 
-                            'bg-red-500'
+                            'bg-red-500 animate-none'
                           }`}></div>
                           {test.time}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-[#555]" />
-                        <div className="flex gap-2 flex-wrap">
+                        <Users className="w-4 h-4 text-gray-400" />
+                        <div className="flex gap-1.5 flex-wrap">
                           {test.personas.map((persona, idx) => (
-                            <Badge key={idx} className={`${persona.color} border-none text-xs`}>
+                            <Badge key={idx} className={`${persona.color} border-none text-xs px-2 py-0.5`}>
                               {persona.name}
                             </Badge>
                           ))}

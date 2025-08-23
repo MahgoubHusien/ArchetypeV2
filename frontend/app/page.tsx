@@ -2,18 +2,20 @@
 
 import { useState } from 'react';
 import { Dashboard } from '@/components/Dashboard';
-import { TestSetup } from '@/components/TestSetup';
+import { TestSetupWizard } from '@/components/TestSetupWizard';
 import { SwarmProgress } from '@/components/SwarmProgress';
 import { TranscriptView } from '@/components/TranscriptView';
 import { UXReport } from '@/components/UXReport';
 import { AskTheData } from '@/components/AskTheData';
 import { TicketModal } from '@/components/TicketModal';
+import { Breadcrumb } from '@/components/Breadcrumb';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Share, MoreVertical, FileDown, Mail, Link } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { runApi } from '@/lib/api';
+import { toast } from 'sonner';
 
 type ViewType = 'dashboard' | 'test-results';
 
@@ -77,28 +79,51 @@ export default function Home() {
       
       setShowSetup(false);
       setShowProgress(true);
+      
+      toast.success('Test started successfully!', {
+        description: `Running ${config.personas.length} personas on ${config.url}`
+      });
     } catch (error: any) {
       console.error('Failed to start test:', error);
       
-      // For now, simulate the test creation since backend doesn't have POST endpoint
-      // This allows the UI to work while backend is being developed
-      alert('Note: Backend POST /runs endpoint not implemented yet.\nSimulating test creation for demo purposes.');
-      
-      // Generate a mock run ID
-      const mockRunId = `mock-${Date.now()}`;
-      
-      setTestConfig({
-        ...config,
-        runId: mockRunId
-      } as any);
-      
-      setShowSetup(false);
-      setShowProgress(true);
-      
-      // Auto-complete after 3 seconds for demo
-      setTimeout(() => {
-        handleProgressComplete();
-      }, 3000);
+      // Check if it's a network error (backend not running)
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        toast.error('Backend server is not running', {
+          description: 'Please start the backend server on port 8000 to run tests.',
+          duration: 5000,
+        });
+        
+        // For demo purposes, offer to run in mock mode
+        toast.info('Running in demo mode', {
+          description: 'Simulating test execution for demonstration purposes.',
+          duration: 3000,
+        });
+        
+        // Generate a mock run ID
+        const mockRunId = `demo-${Date.now()}`;
+        
+        setTestConfig({
+          ...config,
+          runId: mockRunId
+        } as any);
+        
+        setShowSetup(false);
+        setShowProgress(true);
+        
+        // Auto-complete after 5 seconds for demo
+        setTimeout(() => {
+          handleProgressComplete();
+          toast.success('Demo test completed!', {
+            description: 'This was a simulated test run. Start the backend to run real tests.'
+          });
+        }, 5000);
+      } else {
+        // Other API errors
+        toast.error('Failed to start test', {
+          description: error.response?.data?.message || error.message || 'An unexpected error occurred',
+          duration: 5000,
+        });
+      }
     }
   };
 
@@ -156,66 +181,65 @@ export default function Home() {
             className="h-full flex flex-col"
           >
             {/* Header */}
-            <div className="p-4 border-b border-[#E3E3E3] bg-white flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button
-                  onClick={handleBackToDashboard}
-                  variant="ghost"
-                  size="sm"
-                  className="text-[#555] hover:text-[#1A1A1A]"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Dashboard
-                </Button>
+            <div className="p-4 border-b border-[#E3E3E3] bg-white">
+              <div className="mb-3">
+                <Breadcrumb 
+                  items={[
+                    { label: 'Dashboard', href: '/' },
+                    { label: currentTest?.title || 'Test Results' }
+                  ]} 
+                />
+              </div>
+              <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-[#1A1A1A]">
+                  <h1 className="text-2xl font-bold text-[#1A1A1A]">
                     {currentTest?.title || 'Test Results'}
                   </h1>
-                  <p className="text-sm text-[#555]">
+                  <p className="text-sm text-[#555] mt-1">
                     {testConfig?.question || currentTest?.question || 'Analyzing user experience'}
                   </p>
                 </div>
-              </div>
               
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-[#E3E3E3] text-[#555] hover:bg-[#F3F3F5]"
-                >
-                  <Share className="w-4 h-4 mr-2" />
-                  Share
-                </Button>
-                
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline" 
-                      size="sm"
-                      className="border-[#E3E3E3] text-[#555] hover:bg-[#F3F3F5]"
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => handleExportMenu('copy-link')}>
-                      <Link className="w-4 h-4 mr-2" />
-                      Copy Link
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleExportMenu('export-pdf')}>
-                      <FileDown className="w-4 h-4 mr-2" />
-                      Export PDF
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleExportMenu('export-csv')}>
-                      <FileDown className="w-4 h-4 mr-2" />
-                      Export CSV
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleExportMenu('email-summary')}>
-                      <Mail className="w-4 h-4 mr-2" />
-                      Email Summary
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-[#E3E3E3] text-[#555] hover:bg-[#F3F3F5]"
+                  >
+                    <Share className="w-4 h-4 mr-2" />
+                    Share
+                  </Button>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline" 
+                        size="sm"
+                        className="border-[#E3E3E3] text-[#555] hover:bg-[#F3F3F5]"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => handleExportMenu('copy-link')}>
+                        <Link className="w-4 h-4 mr-2" />
+                        Copy Link
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleExportMenu('export-pdf')}>
+                        <FileDown className="w-4 h-4 mr-2" />
+                        Export PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleExportMenu('export-csv')}>
+                        <FileDown className="w-4 h-4 mr-2" />
+                        Export CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleExportMenu('email-summary')}>
+                        <Mail className="w-4 h-4 mr-2" />
+                        Email Summary
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
             </div>
 
@@ -268,7 +292,7 @@ export default function Home() {
       </AnimatePresence>
 
       {/* Modals */}
-      <TestSetup
+      <TestSetupWizard
         isOpen={showSetup}
         onClose={() => setShowSetup(false)}
         onRunTest={handleRunTest}
