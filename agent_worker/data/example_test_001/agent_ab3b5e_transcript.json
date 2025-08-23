@@ -1,0 +1,81 @@
+{
+  "agent_id": "agent_ab3b5e",
+  "persona": {
+    "name": "Test User",
+    "bio": "Curious user exploring the website"
+  },
+  "session": {
+    "url": "https://example.com",
+    "device": "desktop",
+    "browser": "chromium"
+  },
+  "interactions": [
+    {
+      "step": 1,
+      "intent": "explore more information",
+      "action_type": "click",
+      "selector": "text=More information...",
+      "value": "",
+      "result": "clicked",
+      "thought": "To gather more content and assess clarity.",
+      "ts": "2025-08-22T21:45:11.616630",
+      "screenshot": "/static/example_test_001/agent_ab3b5e_step1.png"
+    },
+    {
+      "step": 2,
+      "intent": "explore content clarity",
+      "action_type": "scroll",
+      "selector": "h1",
+      "value": "",
+      "result": "scrolled_to_element",
+      "thought": "Scrolling to see if more content clarifies the page's purpose.",
+      "ts": "2025-08-22T21:45:14.416423",
+      "screenshot": "/static/example_test_001/agent_ab3b5e_step2.png"
+    },
+    {
+      "step": 3,
+      "intent": "explore content clarity",
+      "action_type": "scroll",
+      "selector": "h2",
+      "value": null,
+      "result": "scrolled_to_element",
+      "thought": "Scrolling to see more content under headings for clarity.",
+      "ts": "2025-08-22T21:45:16.463559",
+      "screenshot": "/static/example_test_001/agent_ab3b5e_step3.png"
+    },
+    {
+      "step": 4,
+      "intent": "explore content clarity",
+      "action_type": "click",
+      "selector": "text=Domains",
+      "value": "",
+      "result": "clicked",
+      "thought": "To assess if the content under 'Domains' is clear and understandable.",
+      "ts": "2025-08-22T21:45:20.384087",
+      "screenshot": "/static/example_test_001/agent_ab3b5e_step4.png"
+    },
+    {
+      "step": 5,
+      "intent": "explore content clarity",
+      "action_type": "click",
+      "selector": "text=Domains",
+      "value": "",
+      "result": "clicked",
+      "thought": "Checking if the 'Domains' section provides clear information.",
+      "ts": "2025-08-22T21:45:22.703656",
+      "screenshot": "/static/example_test_001/agent_ab3b5e_step5.png"
+    },
+    {
+      "step": 6,
+      "intent": "explore content clarity",
+      "action_type": "click",
+      "selector": "text=About",
+      "value": "",
+      "result": "clicked",
+      "thought": "To understand the context and clarity of the content provided.",
+      "ts": "2025-08-22T21:45:29.968097",
+      "screenshot": "/static/example_test_001/agent_ab3b5e_step6.png"
+    }
+  ],
+  "finish_reason": "step_budget_reached"
+}

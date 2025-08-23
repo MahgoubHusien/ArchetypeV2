@@ -1,0 +1,189 @@
+import asyncio
+import uuid
+from datetime import datetime
+from pathlib import Path
+from typing import List, Optional
+from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+try:
+    from .models.schemas import (
+        AgentInput, AgentOutput, Interaction, Session,
+        DeviceType, FinishReason, ActionType
+    )
+    from .services.page_digest import extract_page_digest
+    from .services.planner import LLMPlanner
+    from .services.action_executor import ActionExecutor
+except ImportError:
+    from models.schemas import (
+        AgentInput, AgentOutput, Interaction, Session,
+        DeviceType, FinishReason, ActionType
+    )
+    from services.page_digest import extract_page_digest
+    from services.planner import LLMPlanner
+    from services.action_executor import ActionExecutor
+
+
+class UXAgent:
+    def __init__(self, api_key: str, data_dir: Path = Path("data")):
+        self.planner = LLMPlanner(api_key)
+        self.executor = ActionExecutor(data_dir)
+        self.data_dir = data_dir
+        self.agent_id = f"agent_{uuid.uuid4().hex[:6]}"
+    
+    async def run(self, input_data: AgentInput) -> AgentOutput:
+        """Run the agent through its planning loop."""
+        interactions: List[Interaction] = []
+        consecutive_errors = 0
+        
+        async with async_playwright() as p:
+            # Launch browser with appropriate viewport
+            browser = await self._launch_browser(p, input_data.viewport)
+            context = await self._create_context(browser, input_data.viewport)
+            page = await context.new_page()
+            
+            try:
+                # Initial navigation
+                await page.goto(input_data.url, wait_until="domcontentloaded")
+                
+                # Capture initial screenshot
+                initial_screenshot = await self.executor.capture_screenshot(
+                    page, input_data.run_id, self.agent_id, 0
+                )
+                
+                # Main agent loop
+                for step in range(1, input_data.step_budget + 1):
+                    try:
+                        # Extract page digest
+                        page_digest = await extract_page_digest(page)
+                        
+                        # Plan next action
+                        plan = await self.planner.plan_next_action(
+                            persona_bio=input_data.persona.bio,
+                            ux_question=input_data.ux_question,
+                            page_digest=page_digest,
+                            recent_steps=interactions,
+                            step_num=step
+                        )
+                        
+                        # Execute action
+                        result, error = await self.executor.execute_action(
+                            page, plan.action
+                        )
+                        
+                        # Capture screenshot
+                        screenshot = await self.executor.capture_screenshot(
+                            page, input_data.run_id, self.agent_id, step
+                        )
+                        
+                        # Log interaction
+                        interaction = Interaction(
+                            step=step,
+                            intent=plan.intent,
+                            action_type=plan.action.type,
+                            selector=self._extract_selector(plan.action),
+                            value=plan.action.value,
+                            result=result,
+                            thought=plan.rationale,
+                            ts=datetime.utcnow(),
+                            screenshot=screenshot
+                        )
+                        interactions.append(interaction)
+                        
+                        # Handle errors
+                        if error:
+                            consecutive_errors += 1
+                            if consecutive_errors >= input_data.max_consecutive_errors:
+                                finish_reason = FinishReason.CONSECUTIVE_ERRORS
+                                break
+                        else:
+                            consecutive_errors = 0
+                        
+                        # Check for success conditions
+                        if self._check_success(interactions, input_data.ux_question):
+                            finish_reason = FinishReason.SUCCESS
+                            break
+                        
+                    except Exception as e:
+                        # Capture error screenshot
+                        error_screenshot = await self.executor.capture_screenshot(
+                            page, input_data.run_id, self.agent_id, step, full_page=True
+                        )
+                        
+                        interaction = Interaction(
+                            step=step,
+                            intent="Error occurred",
+                            action_type=ActionType.WAIT,
+                            result=f"error: {str(e)}",
+                            thought="Unexpected error during step execution",
+                            ts=datetime.utcnow(),
+                            screenshot=error_screenshot
+                        )
+                        interactions.append(interaction)
+                        
+                        consecutive_errors += 1
+                        if consecutive_errors >= input_data.max_consecutive_errors:
+                            finish_reason = FinishReason.CONSECUTIVE_ERRORS
+                            break
+                
+                else:
+                    # Loop completed without break
+                    finish_reason = FinishReason.STEP_BUDGET_REACHED
+                
+            except Exception as e:
+                finish_reason = FinishReason.NAV_FAILURE
+            
+            finally:
+                await context.close()
+                await browser.close()
+        
+        # Build output
+        session = Session(
+            url=input_data.url,
+            device=DeviceType.MOBILE if input_data.viewport == "mobile" else DeviceType.DESKTOP,
+            browser="chromium"
+        )
+        
+        return AgentOutput(
+            agent_id=self.agent_id,
+            persona=input_data.persona,
+            session=session,
+            interactions=interactions,
+            finish_reason=finish_reason
+        )
+    
+    async def _launch_browser(self, playwright, viewport: str):
+        """Launch browser with appropriate settings."""
+        return await playwright.chromium.launch(
+            headless=True,
+            args=['--no-sandbox', '--disable-setuid-sandbox']
+        )
+    
+    async def _create_context(self, browser: Browser, viewport: str) -> BrowserContext:
+        """Create browser context with viewport settings."""
+        if viewport == "mobile":
+            # iPhone 14 Pro viewport
+            return await browser.new_context(
+                viewport={"width": 393, "height": 852},
+                user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15"
+            )
+        else:
+            # Desktop viewport
+            return await browser.new_context(
+                viewport={"width": 1920, "height": 1080}
+            )
+    
+    def _extract_selector(self, action) -> Optional[str]:
+        """Extract selector string from action."""
+        if action.target:
+            if action.target.selector:
+                return action.target.selector
+            elif action.target.text:
+                return f"text={action.target.text}"
+            elif action.target.role and action.target.name:
+                return f"{action.target.role}[name='{action.target.name}']"
+        return None
+    
+    def _check_success(self, interactions: List[Interaction], ux_question: str) -> bool:
+        """Check if we've successfully answered the UX question."""
+        # For now, always return False to let the agent use its full step budget
+        # The agent will stop when it reaches step_budget or encounters errors
+        return False

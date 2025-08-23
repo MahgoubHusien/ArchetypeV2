@@ -1,0 +1,92 @@
+{
+  "agent_id": "agent_1f3b58",
+  "persona": {
+    "name": "Sam",
+    "bio": "26-year-old founder exploring YC-funded startups to find competitors and inspiration for a new AI UX testing platform"
+  },
+  "session": {
+    "url": "https://www.ycombinator.com/companies",
+    "device": "desktop",
+    "browser": "chromium"
+  },
+  "interactions": [
+    {
+      "step": 1,
+      "intent": "explore_startups",
+      "action_type": "scroll",
+      "selector": null,
+      "value": null,
+      "result": "scrolled",
+      "thought": "Scrolling down to see more startups listed in the directory.",
+      "ts": "2025-08-23T01:35:41.793446",
+      "screenshot": "/static/yc_demo_004/agent_1f3b58_step1.png"
+    },
+    {
+      "step": 2,
+      "intent": "explore_startups",
+      "action_type": "scroll",
+      "selector": null,
+      "value": null,
+      "result": "scrolled",
+      "thought": "Scrolling down to see more startups listed in the directory.",
+      "ts": "2025-08-23T01:35:42.518551",
+      "screenshot": "/static/yc_demo_004/agent_1f3b58_step2.png"
+    },
+    {
+      "step": 3,
+      "intent": "explore_startups",
+      "action_type": "scroll",
+      "selector": "h2",
+      "value": "",
+      "result": "scrolled_to_element",
+      "thought": "Scrolling to see if there are more startups listed under headings.",
+      "ts": "2025-08-23T01:35:43.354105",
+      "screenshot": "/static/yc_demo_004/agent_1f3b58_step3.png"
+    },
+    {
+      "step": 4,
+      "intent": "explore_startups",
+      "action_type": "click",
+      "selector": "text=See all options",
+      "value": null,
+      "result": "clicked",
+      "thought": "Looking for more startups to explore in the directory.",
+      "ts": "2025-08-23T01:35:44.265266",
+      "screenshot": "/static/yc_demo_004/agent_1f3b58_step4.png"
+    },
+    {
+      "step": 5,
+      "intent": "explore_startups",
+      "action_type": "scroll",
+      "selector": null,
+      "value": null,
+      "result": "scrolled",
+      "thought": "Continuing to scroll to find more startups in the directory.",
+      "ts": "2025-08-23T01:35:45.149702",
+      "screenshot": "/static/yc_demo_004/agent_1f3b58_step5.png"
+    },
+    {
+      "step": 6,
+      "intent": "explore_startups",
+      "action_type": "scroll",
+      "selector": null,
+      "value": null,
+      "result": "scrolled",
+      "thought": "Continuing to scroll to find more startups in the directory.",
+      "ts": "2025-08-23T01:35:47.400352",
+      "screenshot": "/static/yc_demo_004/agent_1f3b58_step6.png"
+    },
+    {
+      "step": 7,
+      "intent": "explore_startups",
+      "action_type": "scroll",
+      "selector": null,
+      "value": null,
+      "result": "scrolled",
+      "thought": "Continuing to explore more startups in the directory by scrolling down.",
+      "ts": "2025-08-23T01:35:48.084603",
+      "screenshot": "/static/yc_demo_004/agent_1f3b58_step7.png"
+    }
+  ],
+  "finish_reason": "step_budget_reached"
+}

@@ -1,0 +1,7 @@
+browser-use==0.6.1
+playwright
+pydantic
+python-dotenv
+openai
+aiofiles>=24.1.0
+httpx

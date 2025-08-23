@@ -1,0 +1,166 @@
+openapi: 3.0.3
+info:
+  title: Archetype Agent MVP
+  version: 0.1.0
+servers:
+  - url: http://localhost:8000
+paths:
+  /runs:
+    post:
+      summary: Start a new run
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, ux_question, personas]
+              properties:
+                url: { type: string, format: uri }
+                ux_question: { type: string }
+                personas:
+                  type: array
+                  items:
+                    type: object
+                    required: [name, bio]
+                    properties:
+                      name: { type: string }
+                      bio: { type: string }
+                params:
+                  type: object
+                  properties:
+                    agents_per_persona: { type: integer, default: 3 }
+                    viewports:
+                      type: array
+                      items: { type: string, enum: [desktop, mobile] }
+      responses:
+        "200":
+          description: Run created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_id: { type: string }
+                  state: { type: string, enum: [pending, running, summarizing, done, error] }
+
+  /runs/{run_id}:
+    get:
+      summary: Get run status
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Run status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_id: { type: string }
+                  state: { type: string, enum: [pending, running, summarizing, done, error] }
+                  progress: { type: number, format: float }
+                  url: { type: string }
+                  ux_question: { type: string }
+                  params:
+                    type: object
+                  error: { type: string, nullable: true }
+
+  /runs/{run_id}/transcript:
+    get:
+      summary: Get agent transcripts for a run
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Transcript
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [agent_id, persona, session, interactions]
+                  properties:
+                    agent_id: { type: string }
+                    persona:
+                      type: object
+                      properties:
+                        name: { type: string }
+                        bio: { type: string }
+                    session:
+                      type: object
+                      properties:
+                        url: { type: string }
+                        device: { type: string, enum: [desktop, mobile] }
+                        browser: { type: string }
+                    interactions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          step: { type: integer }
+                          intent: { type: string }
+                          action_type: { type: string, enum: [click, scroll, fill, wait, nav] }
+                          selector: { type: string, nullable: true }
+                          value: { type: string, nullable: true }
+                          result: { type: string }
+                          thought: { type: string }
+                          ts: { type: string, format: date-time }
+                          screenshot: { type: string }
+
+  /runs/{run_id}/report:
+    get:
+      summary: Get report for a run
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Report markdown and stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary_md: { type: string }
+                  stats:
+                    type: object
+                    properties:
+                      agents: { type: integer }
+                      total_steps: { type: integer }
+                      confusions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            text: { type: string }
+                            count: { type: integer }
+                      errors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type: { type: string }
+                            count: { type: integer }
+
+  /health:
+    get:
+      summary: Healthcheck
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
