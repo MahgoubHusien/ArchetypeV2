@@ -20,45 +20,66 @@ async def test_bug_detection():
     
     # Test case 1: Buggy website with frustrated user
     test_case_1 = AgentInput(
-        run_id="test_bugs_frustrated_12",
-        url="https://www.ycombinator.com/",
+        run_id="test_slack_frustrated_contact",
+        url="https://slack.com/",
         persona=Persona(
             name="Alex",
-            bio="Impatient user who wants quick results and hates broken websites"
+            bio=(
+                "Alex is a 29-year-old design lead at a fast-paced agency. They’re under a tight deadline to "
+                "evaluate Slack for a companywide rollout. Alex expects clear calls-to-action, visible enterprise "
+                "contact info, and quick navigation. They dislike hidden or slow UX, and if primary paths fail, "
+                "they’ll try search, footer links, or support pages before growing annoyed."
+            )
         ),
-        ux_question="Can I find contact information quickly?",
+        ux_question=(
+            "Find and click the most straightforward way to contact Slack’s enterprise or sales team—whether it's "
+            "'Contact sales', 'Request a demo', or a dedicated enterprise support link. Prefer top navigation CTAs; "
+            "if not obvious, check the footer or help section. Open that page so Alex can send a message immediately."
+        ),
         viewport=Viewport.DESKTOP,
-        step_budget=10,
+        step_budget=12,
         max_consecutive_errors=3
     )
     
-    # Test case 2: Normal website with engaged user
     test_case_2 = AgentInput(
-        run_id="test_normal_engaged_12",
-        url="https://www.airbnb.com/",
+        run_id="test_bbc_trending_news",
+        url="https://www.bbc.com/",
         persona=Persona(
-            name="Sarah",
-            bio="Curious researcher interested in web standards and documentation"
+            name="Samantha",
+            bio=(
+                "Samantha is a 34-year-old marketing professional who likes to stay updated on global events "
+                "during her morning coffee. She’s not very technical, prefers simple navigation, and usually "
+                "looks for trending or top news stories without wanting to dig too deep. Samantha values speed, "
+                "clarity, and a straightforward path to headlines."
+            )
         ),
-        ux_question="What information does this site provide?",
+        ux_question=(
+            "Find and click on today’s top trending news story on the BBC homepage so Samantha can quickly read it."
+        ),
         viewport=Viewport.DESKTOP,
-        step_budget=5
+        step_budget=10,
+        max_consecutive_errors=2
     )
-    
+        
     test_case_3 = AgentInput(
-    run_id="test_hackernews_startups",
-    url="https://news.ycombinator.com/",
-    persona=Persona(
-        name="Jake",
-        bio=(
-            "Jake is a 30-year-old founder exploring YC-funded startups. "
-            "He's on Hacker News to read trending discussions about new AI companies."
-        )
-    ),
-    ux_question="Find and click on the top AI-related startup post on Hacker News.",
-    viewport=Viewport.DESKTOP,
-    step_budget=15
-)
+        run_id="test_neetcode_practice_2sum_2",
+        url="https://neetcode.io/",
+        persona=Persona(
+            name="Jake",
+            bio=(
+                "Jake is a 30-year-old software engineer preparing for a big FAANG interview. "
+                "He knows that success will require mastering common algorithmic problems, "
+                "and he is determined to practice daily on NeetCode. With only a few weeks "
+                "before his interview, Jake feels a sense of urgency and wants to start practicing "
+                "immediately. He is focusing on essential problems like 2 Sum, which often appear "
+                "in coding assessments. Highly motivated and disciplined, Jake is eager to quickly "
+                "strengthen his problem-solving speed and accuracy."
+            )
+        ),
+        ux_question="Quickly locate and click on the 2 Sum problem on NeetCode so Jake can begin practicing it right away for his upcoming FAANG interview.",
+        viewport=Viewport.DESKTOP,
+        step_budget=15
+    )
 
     print("Running bug detection and sentiment analysis tests...\n")
     
