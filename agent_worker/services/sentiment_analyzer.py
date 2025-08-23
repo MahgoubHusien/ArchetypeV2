@@ -23,6 +23,12 @@ class SentimentAnalyzer:
             "invalid": BugType.VALIDATION_ERROR,
             "cannot": BugType.INTERACTION_FAILURE,
             "unable": BugType.INTERACTION_FAILURE,
+            "selector_not_found": BugType.INTERACTION_FAILURE,
+            "no_target_provided": BugType.INTERACTION_FAILURE,
+            "selector_failed": BugType.INTERACTION_FAILURE,
+            "fill_failed": BugType.INTERACTION_FAILURE,
+            "click_failed": BugType.INTERACTION_FAILURE,
+            "unexpected_error": BugType.UNKNOWN,
         }
         
         self.frustration_indicators = [
@@ -52,21 +58,42 @@ class SentimentAnalyzer:
         sentiment = SentimentLevel.NEUTRAL
         feeling = None
         
-        if error_count >= 3:
+        # Check for actual progress/success
+        successful_actions = sum(1 for i in recent_interactions if self._is_meaningful_progress(i))
+        
+        # Check for navigation/visibility issues
+        navigation_failures = sum(1 for i in recent_interactions 
+                                if "selector_not_found" in i.result or 
+                                   "no_target_provided" in i.result or
+                                   "click_failed" in i.result)
+        
+        # Check if agent is just scrolling without progress
+        only_scrolling = all(i.action_type == ActionType.SCROLL for i in recent_interactions[-3:]) if len(recent_interactions) >= 3 else False
+        
+        if error_count >= 3 or navigation_failures >= 3:
             sentiment = SentimentLevel.FRUSTRATED
-            feeling = "The user seems frustrated due to multiple errors"
-        elif error_count >= 2:
+            feeling = "The user seems frustrated due to multiple errors or inability to interact with the site"
+        elif error_count >= 2 or navigation_failures >= 2:
             sentiment = SentimentLevel.NEGATIVE
-            feeling = "The user is experiencing some difficulties"
+            feeling = "The user is experiencing some difficulties navigating or interacting"
         elif repeated_actions > 2:
             sentiment = SentimentLevel.NEGATIVE
             feeling = "The user appears confused, repeating similar actions"
-        elif time_spent > timedelta(seconds=30):
+        elif only_scrolling and successful_actions == 0:
+            sentiment = SentimentLevel.NEGATIVE
+            feeling = "The user seems lost, just scrolling without finding anything useful"
+        elif time_spent > timedelta(seconds=30) and successful_actions == 0:
             sentiment = SentimentLevel.NEGATIVE
             feeling = "The user is spending too much time on a simple task"
-        elif error_count == 0 and current_step > 2:
+        elif (error_count >= 1 or navigation_failures >= 1) and successful_actions == 0:
+            sentiment = SentimentLevel.NEGATIVE
+            feeling = "The user is having trouble interacting with the site"
+        elif successful_actions >= 2 and error_count == 0 and navigation_failures == 0:
             sentiment = SentimentLevel.POSITIVE
             feeling = "The user is progressing smoothly"
+        elif successful_actions >= 1 and (error_count + navigation_failures) <= 1:
+            sentiment = SentimentLevel.POSITIVE
+            feeling = "The user is making progress despite minor issues"
             
         if self._check_persona_interest(interactions, persona_bio):
             if sentiment == SentimentLevel.POSITIVE:
@@ -185,9 +212,20 @@ class SentimentAnalyzer:
     def _is_meaningful_progress(self, interaction: Interaction) -> bool:
         """Check if an interaction represents meaningful progress."""
         meaningful_actions = [ActionType.CLICK, ActionType.FILL, ActionType.NAV]
+        
+        # Define successful action results
+        successful_results = [
+            "clicked", "filled", "navigated", "scrolled",
+            "clicked_with_fallback", "filled_with_", "scrolled_to_element"
+        ]
+        
+        # Check if action was successful
+        is_successful = any(success_term in interaction.result.lower() 
+                          for success_term in successful_results)
+        
         return (interaction.action_type in meaningful_actions and 
                 not interaction.bug_detected and
-                "success" in interaction.result.lower())
+                is_successful)
                 
     def _generate_bug_description(self, bug_type: BugType, result: str) -> str:
         """Generate a descriptive bug report."""
