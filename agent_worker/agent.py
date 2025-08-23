@@ -7,25 +7,28 @@ from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 try:
     from .models.schemas import (
         AgentInput, AgentOutput, Interaction, Session,
-        DeviceType, FinishReason, ActionType
+        DeviceType, FinishReason, ActionType, SentimentLevel, BugType
     )
     from .services.page_digest import extract_page_digest
     from .services.planner import LLMPlanner
     from .services.action_executor import ActionExecutor
+    from .services.sentiment_analyzer import SentimentAnalyzer
 except ImportError:
     from models.schemas import (
         AgentInput, AgentOutput, Interaction, Session,
-        DeviceType, FinishReason, ActionType
+        DeviceType, FinishReason, ActionType, SentimentLevel, BugType
     )
     from services.page_digest import extract_page_digest
     from services.planner import LLMPlanner
     from services.action_executor import ActionExecutor
+    from services.sentiment_analyzer import SentimentAnalyzer
 
 
 class UXAgent:
     def __init__(self, api_key: str, data_dir: Path = Path("data")):
         self.planner = LLMPlanner(api_key)
         self.executor = ActionExecutor(data_dir)
+        self.sentiment_analyzer = SentimentAnalyzer()
         self.data_dir = data_dir
         self.agent_id = f"agent_{uuid.uuid4().hex[:6]}"
     
@@ -33,6 +36,7 @@ class UXAgent:
         """Run the agent through its planning loop."""
         interactions: List[Interaction] = []
         consecutive_errors = 0
+        bugs_encountered = 0
         
         async with async_playwright() as p:
             # Launch browser with appropriate viewport
@@ -74,6 +78,24 @@ class UXAgent:
                             page, input_data.run_id, self.agent_id, step
                         )
                         
+                        # Detect bugs
+                        bug_detected, bug_type, bug_description = self.sentiment_analyzer.detect_bug(
+                            result, {"url": page.url}
+                        )
+                        
+                        if bug_detected:
+                            bugs_encountered += 1
+                        
+                        # Analyze sentiment
+                        sentiment, user_feeling = self.sentiment_analyzer.analyze_sentiment(
+                            interactions, step, input_data.persona.bio
+                        )
+                        
+                        # Generate dynamic thought based on sentiment and bugs
+                        dynamic_thought = self.sentiment_analyzer.generate_dynamic_thought(
+                            sentiment, bug_detected, plan.action.type, plan.rationale
+                        )
+                        
                         # Log interaction
                         interaction = Interaction(
                             step=step,
@@ -82,11 +104,25 @@ class UXAgent:
                             selector=self._extract_selector(plan.action),
                             value=plan.action.value,
                             result=result,
-                            thought=plan.rationale,
+                            thought=dynamic_thought,
                             ts=datetime.utcnow(),
-                            screenshot=screenshot
+                            screenshot=screenshot,
+                            bug_detected=bug_detected,
+                            bug_type=bug_type,
+                            bug_description=bug_description,
+                            sentiment=sentiment,
+                            user_feeling=user_feeling
                         )
                         interactions.append(interaction)
+                        
+                        # Check for dropoff conditions
+                        should_dropoff, dropoff_reason = self.sentiment_analyzer.check_dropoff_condition(
+                            interactions, input_data.persona.bio, input_data.ux_question
+                        )
+                        
+                        if should_dropoff:
+                            finish_reason = FinishReason.USER_DROPOFF
+                            break
                         
                         # Handle errors
                         if error:
@@ -108,6 +144,9 @@ class UXAgent:
                             page, input_data.run_id, self.agent_id, step, full_page=True
                         )
                         
+                        # Treat exceptions as bugs
+                        bugs_encountered += 1
+                        
                         interaction = Interaction(
                             step=step,
                             intent="Error occurred",
@@ -115,7 +154,12 @@ class UXAgent:
                             result=f"error: {str(e)}",
                             thought="Unexpected error during step execution",
                             ts=datetime.utcnow(),
-                            screenshot=error_screenshot
+                            screenshot=error_screenshot,
+                            bug_detected=True,
+                            bug_type=BugType.UNKNOWN,
+                            bug_description=str(e),
+                            sentiment=SentimentLevel.FRUSTRATED,
+                            user_feeling="Frustrated by unexpected error"
                         )
                         interactions.append(interaction)
                         
@@ -142,12 +186,30 @@ class UXAgent:
             browser="chromium"
         )
         
+        # Calculate overall sentiment
+        if interactions:
+            sentiment_values = [i.sentiment for i in interactions]
+            sentiment_counts = {s: sentiment_values.count(s) for s in SentimentLevel}
+            overall_sentiment = max(sentiment_counts, key=sentiment_counts.get)
+        else:
+            overall_sentiment = SentimentLevel.NEUTRAL
+            
+        # Get dropoff reason if applicable
+        dropoff_reason = None
+        if finish_reason == FinishReason.USER_DROPOFF:
+            _, dropoff_reason = self.sentiment_analyzer.check_dropoff_condition(
+                interactions, input_data.persona.bio, input_data.ux_question
+            )
+        
         return AgentOutput(
             agent_id=self.agent_id,
             persona=input_data.persona,
             session=session,
             interactions=interactions,
-            finish_reason=finish_reason
+            finish_reason=finish_reason,
+            overall_sentiment=overall_sentiment,
+            bugs_encountered=bugs_encountered,
+            dropoff_reason=dropoff_reason
         )
     
     async def _launch_browser(self, playwright, viewport: str):

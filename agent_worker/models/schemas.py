@@ -28,6 +28,24 @@ class FinishReason(str, Enum):
     NAV_FAILURE = "nav_failure"
     SUCCESS = "success"
     ERROR = "error"
+    USER_DROPOFF = "user_dropoff"
+
+
+class BugType(str, Enum):
+    UI_ERROR = "ui_error"
+    LOADING_ERROR = "loading_error"
+    INTERACTION_FAILURE = "interaction_failure"
+    VALIDATION_ERROR = "validation_error"
+    NAVIGATION_ERROR = "navigation_error"
+    UNKNOWN = "unknown"
+
+
+class SentimentLevel(str, Enum):
+    VERY_POSITIVE = "very_positive"
+    POSITIVE = "positive"
+    NEUTRAL = "neutral"
+    NEGATIVE = "negative"
+    FRUSTRATED = "frustrated"
 
 
 class Persona(BaseModel):
@@ -62,6 +80,11 @@ class Interaction(BaseModel):
     thought: str
     ts: datetime
     screenshot: str
+    bug_detected: bool = False
+    bug_type: Optional[BugType] = None
+    bug_description: Optional[str] = None
+    sentiment: SentimentLevel = SentimentLevel.NEUTRAL
+    user_feeling: Optional[str] = None
 
 
 class AgentOutput(BaseModel):
@@ -70,6 +93,9 @@ class AgentOutput(BaseModel):
     session: Session
     interactions: List[Interaction]
     finish_reason: FinishReason
+    overall_sentiment: Optional[SentimentLevel] = None
+    bugs_encountered: int = 0
+    dropoff_reason: Optional[str] = None
 
 
 class PageElement(BaseModel):
@@ -109,3 +135,14 @@ class PlanOutput(BaseModel):
     action: PlannedAction
     rationale: str
     confidence: float = Field(ge=0.0, le=1.0)
+    sentiment_analysis: Optional[SentimentLevel] = None
+    user_feeling: Optional[str] = None
+
+
+class BugReport(BaseModel):
+    bug_type: BugType
+    description: str
+    severity: Literal["low", "medium", "high"]
+    screenshot: Optional[str] = None
+    step: int
+    timestamp: datetime

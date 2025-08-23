@@ -1,0 +1,98 @@
+{
+  "agent_id": "agent_07e108",
+  "persona": {
+    "name": "Sarah",
+    "bio": "Curious researcher interested in web standards and documentation"
+  },
+  "session": {
+    "url": "https://www.airbnb.com/",
+    "device": "desktop",
+    "browser": "chromium"
+  },
+  "interactions": [
+    {
+      "step": 1,
+      "intent": "Wait and observe page state",
+      "action_type": "wait",
+      "selector": null,
+      "value": null,
+      "result": "waited_1000ms",
+      "thought": "Let me wait to explore further.",
+      "ts": "2025-08-23T03:03:40.211984",
+      "screenshot": "/static/test_normal_engaged_12/agent_07e108_step1.png",
+      "bug_detected": false,
+      "bug_type": null,
+      "bug_description": null,
+      "sentiment": "neutral",
+      "user_feeling": null
+    },
+    {
+      "step": 2,
+      "intent": "Explore site information",
+      "action_type": "click",
+      "selector": "text=Travel tips & inspiration",
+      "value": "",
+      "result": "clicked",
+      "thought": "This isn't quite what I expected. Let me see if I can find what I need.",
+      "ts": "2025-08-23T03:03:41.147492",
+      "screenshot": "/static/test_normal_engaged_12/agent_07e108_step2.png",
+      "bug_detected": false,
+      "bug_type": null,
+      "bug_description": null,
+      "sentiment": "negative",
+      "user_feeling": "The content doesn't seem to match the user's interests"
+    },
+    {
+      "step": 3,
+      "intent": "Explore site information",
+      "action_type": "click",
+      "selector": "text=Help Center",
+      "value": null,
+      "result": "clicked",
+      "thought": "This looks good. Let me click here.",
+      "ts": "2025-08-23T03:03:42.876406",
+      "screenshot": "/static/test_normal_engaged_12/agent_07e108_step3.png",
+      "bug_detected": false,
+      "bug_type": null,
+      "bug_description": null,
+      "sentiment": "positive",
+      "user_feeling": "The user is progressing smoothly"
+    },
+    {
+      "step": 4,
+      "intent": "Explore site information",
+      "action_type": "scroll",
+      "selector": null,
+      "value": null,
+      "result": "scrolled",
+      "thought": "This looks good. Let me scroll here.",
+      "ts": "2025-08-23T03:03:43.757373",
+      "screenshot": "/static/test_normal_engaged_12/agent_07e108_step4.png",
+      "bug_detected": false,
+      "bug_type": null,
+      "bug_description": null,
+      "sentiment": "positive",
+      "user_feeling": "The user is progressing smoothly"
+    },
+    {
+      "step": 5,
+      "intent": "Explore site information",
+      "action_type": "click",
+      "selector": "text=Browse all topics",
+      "value": null,
+      "result": "clicked",
+      "thought": "This looks good. Let me click here.",
+      "ts": "2025-08-23T03:03:44.585196",
+      "screenshot": "/static/test_normal_engaged_12/agent_07e108_step5.png",
+      "bug_detected": false,
+      "bug_type": null,
+      "bug_description": null,
+      "sentiment": "positive",
+      "user_feeling": "The user is progressing smoothly"
+    }
+  ],
+  "finish_reason": "step_budget_reached",
+  "overall_sentiment": "positive",
+  "bugs_encountered": 0,
+  "dropoff_reason": null
+}

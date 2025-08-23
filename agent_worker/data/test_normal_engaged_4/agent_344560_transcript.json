@@ -1,0 +1,98 @@
+{
+  "agent_id": "agent_344560",
+  "persona": {
+    "name": "Sarah",
+    "bio": "Curious researcher interested in web standards and documentation"
+  },
+  "session": {
+    "url": "https://www.ycombinator.com/",
+    "device": "desktop",
+    "browser": "chromium"
+  },
+  "interactions": [
+    {
+      "step": 1,
+      "intent": "explore",
+      "action_type": "click",
+      "selector": "text=About",
+      "value": "",
+      "result": "clicked",
+      "thought": "Let me click to explore further.",
+      "ts": "2025-08-23T02:31:34.947401",
+      "screenshot": "/static/test_normal_engaged_4/agent_344560_step1.png",
+      "bug_detected": false,
+      "bug_type": null,
+      "bug_description": null,
+      "sentiment": "neutral",
+      "user_feeling": null
+    },
+    {
+      "step": 2,
+      "intent": "explore",
+      "action_type": "scroll",
+      "selector": "h2",
+      "value": "",
+      "result": "scrolled_to_element",
+      "thought": "This isn't quite what I expected. Let me see if I can find what I need.",
+      "ts": "2025-08-23T02:31:36.064287",
+      "screenshot": "/static/test_normal_engaged_4/agent_344560_step2.png",
+      "bug_detected": false,
+      "bug_type": null,
+      "bug_description": null,
+      "sentiment": "negative",
+      "user_feeling": "The content doesn't seem to match the user's interests"
+    },
+    {
+      "step": 3,
+      "intent": "explore",
+      "action_type": "click",
+      "selector": "text=Companies",
+      "value": "",
+      "result": "clicked",
+      "thought": "This looks good. Let me click here.",
+      "ts": "2025-08-23T02:31:37.324658",
+      "screenshot": "/static/test_normal_engaged_4/agent_344560_step3.png",
+      "bug_detected": false,
+      "bug_type": null,
+      "bug_description": null,
+      "sentiment": "positive",
+      "user_feeling": "The user is progressing smoothly"
+    },
+    {
+      "step": 4,
+      "intent": "explore",
+      "action_type": "click",
+      "selector": "text=Startup Jobs",
+      "value": "",
+      "result": "clicked",
+      "thought": "This looks good. Let me click here.",
+      "ts": "2025-08-23T02:31:39.009213",
+      "screenshot": "/static/test_normal_engaged_4/agent_344560_step4.png",
+      "bug_detected": false,
+      "bug_type": null,
+      "bug_description": null,
+      "sentiment": "positive",
+      "user_feeling": "The user is progressing smoothly"
+    },
+    {
+      "step": 5,
+      "intent": "explore",
+      "action_type": "click",
+      "selector": "text=Library",
+      "value": "",
+      "result": "clicked",
+      "thought": "This looks good. Let me click here.",
+      "ts": "2025-08-23T02:31:41.218230",
+      "screenshot": "/static/test_normal_engaged_4/agent_344560_step5.png",
+      "bug_detected": false,
+      "bug_type": null,
+      "bug_description": null,
+      "sentiment": "positive",
+      "user_feeling": "The user is progressing smoothly"
+    }
+  ],
+  "finish_reason": "step_budget_reached",
+  "overall_sentiment": "positive",
+  "bugs_encountered": 0,
+  "dropoff_reason": null
+}
