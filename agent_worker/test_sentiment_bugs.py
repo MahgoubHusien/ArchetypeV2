@@ -20,21 +20,20 @@ async def test_bug_detection():
     
     # Test case 1: Buggy website with frustrated user
     test_case_1 = AgentInput(
-        run_id="test_slack_frustrated_contact",
-        url="https://slack.com/",
+        run_id="test_nike_shopper_shoes",
+        url="https://www.nike.com/",
         persona=Persona(
-            name="Alex",
+            name="Jordan",
             bio=(
-                "Alex is a 29-year-old design lead at a fast-paced agency. They’re under a tight deadline to "
-                "evaluate Slack for a companywide rollout. Alex expects clear calls-to-action, visible enterprise "
-                "contact info, and quick navigation. They dislike hidden or slow UX, and if primary paths fail, "
-                "they’ll try search, footer links, or support pages before growing annoyed."
+                "Jordan is a 24-year-old college athlete who plays basketball and follows the latest sneaker drops. "
+                "He cares about both performance and style, and he often browses Nike’s website to check out new releases. "
+                "Jordan doesn’t like wasting time digging through menus—he wants to get straight to the newest basketball shoes. "
+                "He’s budget-conscious as a student but will splurge on limited editions if they stand out."
             )
         ),
         ux_question=(
-            "Find and click the most straightforward way to contact Slack’s enterprise or sales team—whether it's "
-            "'Contact sales', 'Request a demo', or a dedicated enterprise support link. Prefer top navigation CTAs; "
-            "if not obvious, check the footer or help section. Open that page so Alex can send a message immediately."
+            "Navigate to the newest basketball shoe releases on Nike’s website so Jordan can browse the latest styles "
+            "and decide if he wants to buy a pair."
         ),
         viewport=Viewport.DESKTOP,
         step_budget=12,
@@ -62,23 +61,24 @@ async def test_bug_detection():
     )
         
     test_case_3 = AgentInput(
-        run_id="test_neetcode_practice_2sum_2",
-        url="https://neetcode.io/",
+        run_id="test_imdb_movie_search",
+        url="https://www.imdb.com/",
         persona=Persona(
-            name="Jake",
+            name="David",
             bio=(
-                "Jake is a 30-year-old software engineer preparing for a big FAANG interview. "
-                "He knows that success will require mastering common algorithmic problems, "
-                "and he is determined to practice daily on NeetCode. With only a few weeks "
-                "before his interview, Jake feels a sense of urgency and wants to start practicing "
-                "immediately. He is focusing on essential problems like 2 Sum, which often appear "
-                "in coding assessments. Highly motivated and disciplined, Jake is eager to quickly "
-                "strengthen his problem-solving speed and accuracy."
+                "David is a 27-year-old graduate student who loves movies and TV shows. He often checks IMDB "
+                "to read reviews, watch trailers, and see ratings before deciding what to watch. David isn’t very "
+                "technical but is comfortable browsing popular sites. Tonight, he wants to quickly look up a movie "
+                "his friends recommended so he can decide whether it’s worth watching."
             )
         ),
-        ux_question="Quickly locate and click on the 2 Sum problem on NeetCode so Jake can begin practicing it right away for his upcoming FAANG interview.",
+        ux_question=(
+            "Search for the movie 'Inception' on IMDB and open its page so David can check the rating, reviews, "
+            "and cast information."
+        ),
         viewport=Viewport.DESKTOP,
-        step_budget=15
+        step_budget=12,
+        max_consecutive_errors=2
     )
 
     print("Running bug detection and sentiment analysis tests...\n")

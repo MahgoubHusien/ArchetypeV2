@@ -25,33 +25,55 @@ class ActionExecutor:
                 selector = self._build_selector(action)
                 if selector:
                     try:
-                        # Scroll into view first
-                        await page.locator(selector).first.scroll_into_view_if_needed(
-                            timeout=timeout_ms
-                        )
-                        await page.locator(selector).first.click(timeout=timeout_ms)
+                        # Try primary selector
+                        element = page.locator(selector).first
+                        await element.scroll_into_view_if_needed(timeout=timeout_ms)
+                        await element.click(timeout=timeout_ms)
                         return "clicked", None
                     except Exception as e:
-                        # If primary selector fails, try building multiple selectors
+                        # Try fallback strategies
                         target = action.target
                         if target:
                             fallback_selectors = []
+                            
+                            # Build comprehensive fallback list
                             if target.text:
                                 clean_text = target.text.strip()
                                 fallback_selectors.extend([
                                     f'text="{clean_text}"',
                                     f'text*="{clean_text}"',
-                                    f'[aria-label*="{clean_text}"]'
+                                    f'*:has-text("{clean_text}")',
+                                    f'[aria-label*="{clean_text}"]',
+                                    f'[title*="{clean_text}"]'
                                 ])
-                            if target.role:
-                                fallback_selectors.append(target.role)
                             
-                            result, error = await self._try_multiple_selectors(page, fallback_selectors, "click", timeout_ms)
-                            if "clicked" in result:
-                                return result, None
+                            if target.role:
+                                if target.role == "button":
+                                    fallback_selectors.extend(['button', '[role="button"]', '[type="button"]'])
+                                elif target.role == "link" or target.role == "a":
+                                    fallback_selectors.extend(['a', '[role="link"]'])
+                                else:
+                                    fallback_selectors.append(target.role)
+                            
+                            if target.name:
+                                fallback_selectors.extend([
+                                    f'[name="{target.name}"]',
+                                    f'#{target.name}',
+                                    f'[data-testid="{target.name}"]'
+                                ])
+                            
+                            # Try each fallback selector
+                            for fallback_selector in fallback_selectors:
+                                try:
+                                    element = page.locator(fallback_selector).first
+                                    await element.scroll_into_view_if_needed(timeout=timeout_ms)
+                                    await element.click(timeout=timeout_ms)
+                                    return f"clicked_with_fallback", None
+                                except:
+                                    continue
                         
-                        return "click_failed", e
-                return "selector_not_found", None
+                        return "selector_not_found", None
+                return "no_target_provided", None
             
             elif action.type == ActionType.SCROLL:
                 if action.target and action.target.selector:
@@ -139,86 +161,25 @@ class ActionExecutor:
         return f"/static/{run_id}/{filename}"
     
     def _build_selector(self, action: PlannedAction) -> Optional[str]:
-        """Build selector from action target with enhanced strategies."""
+        """Build selector from action target."""
         if not action.target:
             return None
         
         target = action.target
         
-        # Try different selector strategies in priority order
-        selectors_to_try = []
-        
-        # Priority 1: Direct selector (if provided)
-        if target.selector:
-            selectors_to_try.append(target.selector)
-        
-        # Priority 2: Text-based selectors (most reliable)
+        # Try different selector strategies in order
         if target.text:
-            # Clean the text and create multiple variants
-            clean_text = target.text.strip()
-            if clean_text:
-                selectors_to_try.extend([
-                    f'text="{clean_text}"',
-                    f'text={clean_text}',
-                    f'text*="{clean_text}"',  # Contains text
-                    f'[aria-label*="{clean_text}"]',
-                    f'[title*="{clean_text}"]'
-                ])
+            # Use text selector - escape quotes properly
+            clean_text = target.text.strip().replace('"', '\\"')
+            return f'text="{clean_text}"'
         
-        # Priority 3: Role and name combinations
         if target.role and target.name:
-            selectors_to_try.extend([
-                f'{target.role}[name="{target.name}"]',
-                f'[role="{target.role}"][name="{target.name}"]'
-            ])
+            # Use role and name
+            return f'{target.role}[name="{target.name}"]'
         
-        # Priority 4: Role-based selectors
-        if target.role:
-            role_selectors = {
-                'button': ['button', '[role="button"]', '[type="button"]'],
-                'link': ['a', '[role="link"]'],
-                'input': ['input', '[role="textbox"]'],
-                'select': ['select', '[role="combobox"]', '[role="listbox"]'],
-                'textarea': ['textarea', '[role="textbox"]']
-            }
-            if target.role in role_selectors:
-                selectors_to_try.extend(role_selectors[target.role])
+        if target.selector:
+            # Use direct selector
+            return target.selector
         
-        # Priority 5: Name-based selectors
-        if target.name:
-            selectors_to_try.extend([
-                f'[name="{target.name}"]',
-                f'[data-testid="{target.name}"]',
-                f'[data-test="{target.name}"]',
-                f'#{target.name}',
-                f'.{target.name}'
-            ])
-        
-        # Return the first available selector
-        return selectors_to_try[0] if selectors_to_try else None
+        return None
     
-    async def _try_multiple_selectors(self, page: Page, selectors: List[str], action_type: str = "click", timeout_ms: int = 3000) -> Tuple[str, Optional[Exception]]:
-        """Try multiple selector strategies until one works."""
-        last_error = None
-        
-        for selector in selectors:
-            if not selector:
-                continue
-                
-            try:
-                # Test if element exists and is visible
-                element = page.locator(selector).first
-                
-                if action_type == "click":
-                    await element.scroll_into_view_if_needed(timeout=timeout_ms)
-                    await element.click(timeout=timeout_ms)
-                    return f"clicked_with_{selector}", None
-                elif action_type == "fill":
-                    await element.scroll_into_view_if_needed(timeout=timeout_ms)
-                    return f"found_element_{selector}", None
-                    
-            except Exception as e:
-                last_error = e
-                continue
-        
-        return "selector_failed", last_error

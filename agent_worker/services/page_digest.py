@@ -220,12 +220,14 @@ async def extract_page_digest(page: Page, max_interactives: int = 50) -> PageDig
                 // Priority 3: Text-based selectors (most reliable for users)
                 const text = getElementText(el);
                 if (text && text.length > 1 && text.length < 50) {{
-                    selectors.push(`text="${{text}}"`);
+                    // Escape quotes in text for Playwright
+                    const escapedText = text.replace(/"/g, '\\\\"');
+                    selectors.push(`text="${{escapedText}}"`);
                     if (el.tagName.toLowerCase() === 'button') {{
-                        selectors.push(`button:has-text("${{text}}")`);
+                        selectors.push(`button:has-text("${{escapedText}}")`);
                     }}
                     if (el.tagName.toLowerCase() === 'a') {{
-                        selectors.push(`link:has-text("${{text}}")`);
+                        selectors.push(`a:has-text("${{escapedText}}")`);
                     }}
                 }}
                 
