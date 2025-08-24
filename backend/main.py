@@ -59,10 +59,15 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware
+# Add CORS middleware for lovable.dev
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly for production
+    allow_origins=[
+        "https://preview--test-persona-hub.lovable.app",
+        "https://lovable.app",
+        "http://localhost:3000",
+        "http://localhost:5173"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,7 +78,7 @@ def get_supabase() -> Client:
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
 
 # Agent runner and LLM functions
-async def run_agent_background(agent_request: AgentRunRequest, run_id: str):
+async def run_agent_background(agent_request: AgentRunRequest, run_id: str, agent_id: str):
     """Run the agent in the background"""
     try:
         # Import here to avoid circular imports
@@ -110,7 +115,10 @@ async def run_agent_background(agent_request: AgentRunRequest, run_id: str):
         agent_manager = AgentManager()
         agent = UXAgent(api_key, agent_manager=agent_manager)
         
-        # Run the agent
+        # Set the agent_id since it was already created
+        agent.agent_id = agent_id
+        
+        # Run the agent (it's already been created, just execute it)
         result = await agent.run(agent_input)
         
         print(f"Agent {result.agent_id} completed with {result.finish_reason}")
@@ -238,17 +246,32 @@ Respond in JSON format:
         }
 
 
+@app.options("/")
+async def options_root():
+    """Handle OPTIONS request for root endpoint"""
+    return {"message": "OK"}
+
 @app.get("/")
 async def root():
     """Root endpoint"""
     return {"message": "Agent API is running", "version": "1.0.0"}
 
 
+@app.options("/health")
+async def options_health():
+    """Handle OPTIONS request for health endpoint"""
+    return {"message": "OK"}
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "agent-api"}
 
+
+@app.options("/agent/run")
+async def options_run_agent():
+    """Handle OPTIONS request for agent run endpoint"""
+    return {"message": "OK"}
 
 @app.post("/agent/run", response_model=AgentRunResponse)
 async def run_agent(request: AgentRunRequest, background_tasks: BackgroundTasks):
@@ -257,14 +280,56 @@ async def run_agent(request: AgentRunRequest, background_tasks: BackgroundTasks)
     Fixed parameters: viewport=DESKTOP, step_budget=15, max_consecutive_errors=2, seed=19
     """
     try:
+        # Import here to avoid circular imports
+        import sys
+        from pathlib import Path
+        
+        # Add the parent directory to path to import agent_worker
+        parent_dir = Path(__file__).parent.parent
+        sys.path.insert(0, str(parent_dir))
+        
+        from agent_worker.agent import UXAgent
+        from agent_worker.models.schemas import AgentInput, Persona, Viewport
+        from agent_worker.services.agent_manager import AgentManager
+        
         # Generate unique run_id
         run_id = f"api_run_{uuid4()}"
         
-        # Start agent in background
-        background_tasks.add_task(run_agent_background, request, run_id)
+        # Get API key from config
+        api_key = settings.OPENAI_API_KEY
+        
+        # Create agent input with fixed defaults
+        agent_input = AgentInput(
+            run_id=run_id,
+            url=request.url,
+            persona=Persona(
+                name=request.persona.name,
+                bio=request.persona.bio
+            ),
+            ux_question=request.ux_question,
+            viewport=Viewport.DESKTOP,  # Fixed
+            step_budget=15,  # Fixed
+            max_consecutive_errors=2,  # Fixed
+            seed=19  # Fixed
+        )
+        
+        # Initialize agent manager and create agent to get the ID
+        agent_manager = AgentManager()
+        
+        # Create the agent first to get the ID
+        agent_id = agent_manager.create_agent(
+            run_id=run_id,
+            persona_name=request.persona.name,
+            persona_bio=request.persona.bio,
+            url=request.url,
+            ux_question=request.ux_question
+        )
+        
+        # Start agent execution in background
+        background_tasks.add_task(run_agent_background, request, run_id, agent_id)
         
         return AgentRunResponse(
-            agent_id="pending",  # Will be generated when agent starts
+            agent_id=agent_id,  # Now we have the actual agent ID
             run_id=run_id,
             status="started",
             message=f"Agent started for {request.persona.name} on {request.url}"
@@ -273,6 +338,11 @@ async def run_agent(request: AgentRunRequest, background_tasks: BackgroundTasks)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start agent: {str(e)}")
 
+
+@app.options("/agent/summary")
+async def options_agent_summary():
+    """Handle OPTIONS request for agent summary endpoint"""
+    return {"message": "OK"}
 
 @app.post("/agent/summary", response_model=TranscriptSummaryResponse)
 async def get_agent_summary(request: TranscriptSummaryRequest):
@@ -314,6 +384,11 @@ async def get_agent_summary(request: TranscriptSummaryRequest):
         raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
 
 
+@app.options("/agent/{agent_id}/status")
+async def options_agent_status(agent_id: str):
+    """Handle OPTIONS request for agent status endpoint"""
+    return {"message": "OK"}
+
 @app.get("/agent/{agent_id}/status")
 async def get_agent_status(agent_id: str):
     """Get current status of an agent"""
@@ -352,6 +427,11 @@ async def get_agent_status(agent_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to get agent status: {str(e)}")
 
 
+@app.options("/agents")
+async def options_agents():
+    """Handle OPTIONS request for agents endpoint"""
+    return {"message": "OK"}
+
 @app.get("/agents")
 async def list_agents(run_id: Optional[str] = None, status: Optional[str] = None):
     """List all agents with optional filtering"""
@@ -383,6 +463,11 @@ async def list_agents(run_id: Optional[str] = None, status: Optional[str] = None
         raise HTTPException(status_code=500, detail=f"Failed to list agents: {str(e)}")
 
 
+@app.options("/runs")
+async def options_runs():
+    """Handle OPTIONS request for runs endpoint"""
+    return {"message": "OK"}
+
 @app.post("/runs")
 async def create_run(run: Run, supabase: Client = Depends(get_supabase)):
     """Create a new run and return the run_id"""
@@ -404,6 +489,11 @@ async def create_run(run: Run, supabase: Client = Depends(get_supabase)):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
+@app.options("/runs/{run_id}/agents")
+async def options_run_agents(run_id: UUID):
+    """Handle OPTIONS request for run agents endpoint"""
+    return {"message": "OK"}
+
 @app.get("/runs/{run_id}/agents", response_model=List[Agent])
 async def get_agents_for_run(run_id: UUID, supabase: Client = Depends(get_supabase)):
     """Get list of agents for the specified run"""
@@ -414,6 +504,11 @@ async def get_agents_for_run(run_id: UUID, supabase: Client = Depends(get_supaba
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
+@app.options("/agents/{agent_id}/interactions")
+async def options_agent_interactions(agent_id: UUID):
+    """Handle OPTIONS request for agent interactions endpoint"""
+    return {"message": "OK"}
+
 @app.get("/agents/{agent_id}/interactions", response_model=List[Interaction])
 async def get_interactions_for_agent(agent_id: UUID, supabase: Client = Depends(get_supabase)):
     """Get steps (interactions) for the specified agent"""
@@ -423,6 +518,11 @@ async def get_interactions_for_agent(agent_id: UUID, supabase: Client = Depends(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+
+@app.options("/ask-the-data")
+async def options_ask_the_data():
+    """Handle OPTIONS request for ask-the-data endpoint"""
+    return {"message": "OK"}
 
 @app.post("/ask-the-data", response_model=AskTheDataResponse)
 async def ask_the_data(request: AskTheDataRequest):
