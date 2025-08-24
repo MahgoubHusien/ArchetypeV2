@@ -59,13 +59,20 @@ class UXAgent:
                         # Extract page digest
                         page_digest = await extract_page_digest(page)
                         
-                        # Plan next action
+                        # Analyze current sentiment BEFORE planning
+                        current_sentiment, user_feeling = self.sentiment_analyzer.analyze_sentiment(
+                            interactions, step, input_data.persona.bio
+                        )
+                        
+                        # Plan next action with sentiment context
                         plan = await self.planner.plan_next_action(
                             persona_bio=input_data.persona.bio,
                             ux_question=input_data.ux_question,
                             page_digest=page_digest,
                             recent_steps=interactions,
-                            step_num=step
+                            step_num=step,
+                            current_sentiment=current_sentiment,
+                            user_feeling=user_feeling
                         )
                         
                         # Execute action
@@ -78,7 +85,7 @@ class UXAgent:
                             page, input_data.run_id, self.agent_id, step
                         )
                         
-                        # Detect bugs
+                        # Detect bugs from action result
                         bug_detected, bug_type, bug_description = self.sentiment_analyzer.detect_bug(
                             result, {"url": page.url}
                         )
@@ -86,14 +93,9 @@ class UXAgent:
                         if bug_detected:
                             bugs_encountered += 1
                         
-                        # Analyze sentiment
-                        sentiment, user_feeling = self.sentiment_analyzer.analyze_sentiment(
-                            interactions, step, input_data.persona.bio
-                        )
-                        
-                        # Generate dynamic thought based on sentiment and bugs
+                        # Generate dynamic thought based on current sentiment and bugs
                         dynamic_thought = self.sentiment_analyzer.generate_dynamic_thought(
-                            sentiment, bug_detected, plan.action.type, plan.rationale
+                            current_sentiment, bug_detected, plan.action.type, plan.rationale
                         )
                         
                         # Log interaction
@@ -110,7 +112,7 @@ class UXAgent:
                             bug_detected=bug_detected,
                             bug_type=bug_type,
                             bug_description=bug_description,
-                            sentiment=sentiment,
+                            sentiment=current_sentiment,
                             user_feeling=user_feeling
                         )
                         interactions.append(interaction)
@@ -147,19 +149,32 @@ class UXAgent:
                         # Treat exceptions as bugs
                         bugs_encountered += 1
                         
+                        # Analyze sentiment BEFORE logging the error
+                        current_sentiment, user_feeling = self.sentiment_analyzer.analyze_sentiment(
+                            interactions, step, input_data.persona.bio
+                        )
+                        
+                        # Generate appropriate thought based on sentiment
+                        if current_sentiment == SentimentLevel.FRUSTRATED:
+                            error_thought = "This is really frustrating. The site keeps having technical issues."
+                        elif current_sentiment == SentimentLevel.NEGATIVE:
+                            error_thought = "Another error. This site is not working well."
+                        else:
+                            error_thought = "Encountered a technical issue. This is getting frustrating."
+                        
                         interaction = Interaction(
                             step=step,
-                            intent="Error occurred",
+                            intent="Handling unexpected technical error",
                             action_type=ActionType.WAIT,
                             result=f"error: {str(e)}",
-                            thought="Unexpected error during step execution",
+                            thought=error_thought,
                             ts=datetime.utcnow(),
                             screenshot=error_screenshot,
                             bug_detected=True,
                             bug_type=BugType.UNKNOWN,
                             bug_description=str(e),
-                            sentiment=SentimentLevel.FRUSTRATED,
-                            user_feeling="Frustrated by unexpected error"
+                            sentiment=SentimentLevel.FRUSTRATED,  # Errors should always be frustrating
+                            user_feeling="Frustrated by unexpected technical error"
                         )
                         interactions.append(interaction)
                         

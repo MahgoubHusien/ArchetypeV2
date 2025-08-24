@@ -1,6 +1,6 @@
 import asyncio
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 from playwright.async_api import Page, Error as PlaywrightError
 try:
     from ..models.schemas import PlannedAction, ActionType
@@ -24,13 +24,56 @@ class ActionExecutor:
             if action.type == ActionType.CLICK:
                 selector = self._build_selector(action)
                 if selector:
-                    # Scroll into view first
-                    await page.locator(selector).first.scroll_into_view_if_needed(
-                        timeout=timeout_ms
-                    )
-                    await page.locator(selector).first.click(timeout=timeout_ms)
-                    return "clicked", None
-                return "selector_not_found", None
+                    try:
+                        # Try primary selector
+                        element = page.locator(selector).first
+                        await element.scroll_into_view_if_needed(timeout=timeout_ms)
+                        await element.click(timeout=timeout_ms)
+                        return "clicked", None
+                    except Exception as e:
+                        # Try fallback strategies
+                        target = action.target
+                        if target:
+                            fallback_selectors = []
+                            
+                            # Build comprehensive fallback list
+                            if target.text:
+                                clean_text = target.text.strip()
+                                fallback_selectors.extend([
+                                    f'text="{clean_text}"',
+                                    f'text*="{clean_text}"',
+                                    f'*:has-text("{clean_text}")',
+                                    f'[aria-label*="{clean_text}"]',
+                                    f'[title*="{clean_text}"]'
+                                ])
+                            
+                            if target.role:
+                                if target.role == "button":
+                                    fallback_selectors.extend(['button', '[role="button"]', '[type="button"]'])
+                                elif target.role == "link" or target.role == "a":
+                                    fallback_selectors.extend(['a', '[role="link"]'])
+                                else:
+                                    fallback_selectors.append(target.role)
+                            
+                            if target.name:
+                                fallback_selectors.extend([
+                                    f'[name="{target.name}"]',
+                                    f'#{target.name}',
+                                    f'[data-testid="{target.name}"]'
+                                ])
+                            
+                            # Try each fallback selector
+                            for fallback_selector in fallback_selectors:
+                                try:
+                                    element = page.locator(fallback_selector).first
+                                    await element.scroll_into_view_if_needed(timeout=timeout_ms)
+                                    await element.click(timeout=timeout_ms)
+                                    return f"clicked_with_fallback", None
+                                except:
+                                    continue
+                        
+                        return "selector_not_found", None
+                return "no_target_provided", None
             
             elif action.type == ActionType.SCROLL:
                 if action.target and action.target.selector:
@@ -47,9 +90,36 @@ class ActionExecutor:
             elif action.type == ActionType.FILL:
                 selector = self._build_selector(action)
                 if selector and action.value:
-                    await page.locator(selector).first.fill(action.value, timeout=timeout_ms)
-                    return "filled", None
-                return "selector_not_found", None
+                    try:
+                        await page.locator(selector).first.fill(action.value, timeout=timeout_ms)
+                        return "filled", None
+                    except Exception as e:
+                        # Try fallback selectors for form fields
+                        target = action.target
+                        if target:
+                            fallback_selectors = []
+                            if target.name:
+                                fallback_selectors.extend([
+                                    f'input[name="{target.name}"]',
+                                    f'textarea[name="{target.name}"]',
+                                    f'[name="{target.name}"]'
+                                ])
+                            if target.text:
+                                clean_text = target.text.strip()
+                                fallback_selectors.extend([
+                                    f'input[placeholder*="{clean_text}"]',
+                                    f'[aria-label*="{clean_text}"]'
+                                ])
+                            
+                            for fallback_selector in fallback_selectors:
+                                try:
+                                    await page.locator(fallback_selector).first.fill(action.value, timeout=timeout_ms)
+                                    return f"filled_with_{fallback_selector}", None
+                                except:
+                                    continue
+                        
+                        return "fill_failed", e
+                return "selector_not_found_or_no_value", None
             
             elif action.type == ActionType.WAIT:
                 wait_ms = action.ms or 1000
@@ -99,15 +169,17 @@ class ActionExecutor:
         
         # Try different selector strategies in order
         if target.text:
-            # Use text selector
-            return f"text={target.text}"
+            # Use text selector - escape quotes properly
+            clean_text = target.text.strip().replace('"', '\\"')
+            return f'text="{clean_text}"'
         
         if target.role and target.name:
             # Use role and name
-            return f"{target.role}[name='{target.name}']"
+            return f'{target.role}[name="{target.name}"]'
         
         if target.selector:
             # Use direct selector
             return target.selector
         
         return None
+    

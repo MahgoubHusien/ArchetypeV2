@@ -107,6 +107,21 @@ class PageElement(BaseModel):
     data_testid: Optional[str] = None
     selector_hint: Optional[str] = None
     visible: bool = True
+    # Enhanced attributes for better element identification
+    element_id: Optional[str] = None
+    class_name: Optional[str] = None
+    tag_name: Optional[str] = None
+    href: Optional[str] = None
+    type: Optional[str] = None
+    value: Optional[str] = None
+    aria_label: Optional[str] = None
+    title: Optional[str] = None
+    alt: Optional[str] = None
+    position: Optional[Dict[str, float]] = None  # x, y, width, height
+    parent_context: Optional[str] = None
+    clickable: Optional[bool] = False
+    focusable: Optional[bool] = False
+    form_field: Optional[bool] = False
 
 
 class PageDigest(BaseModel):

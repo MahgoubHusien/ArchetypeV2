@@ -20,45 +20,76 @@ async def test_bug_detection():
     
     # Test case 1: Buggy website with frustrated user
     test_case_1 = AgentInput(
-        run_id="test_bugs_frustrated_12",
-        url="https://www.ycombinator.com/",
+        run_id="test_nike_shopper_shoes",
+        url="https://www.nike.com/",
         persona=Persona(
-            name="Alex",
-            bio="Impatient user who wants quick results and hates broken websites"
+            name="Jordan",
+            bio=(
+                "Jordan is a 24-year-old college athlete who plays basketball and follows the latest sneaker drops. "
+                "He cares about both performance and style, and he often browses Nike’s website to check out new releases. "
+                "Jordan doesn’t like wasting time digging through menus—he wants to get straight to the newest basketball shoes. "
+                "He’s budget-conscious as a student but will splurge on limited editions if they stand out."
+            )
         ),
-        ux_question="Can I find contact information quickly?",
+        ux_question=(
+            "Navigate to the newest basketball shoe releases on Nike’s website so Jordan can browse the latest styles "
+            "and decide if he wants to buy a pair."
+        ),
         viewport=Viewport.DESKTOP,
-        step_budget=10,
+        step_budget=12,
         max_consecutive_errors=3
     )
     
-    # Test case 2: Normal website with engaged user
+    # Test case 2: YC investor scouting startups (detailed persona + goal)
     test_case_2 = AgentInput(
-        run_id="test_normal_engaged_12",
-        url="https://www.airbnb.com/",
+        run_id="test_yc_investor_startups",
+        url="https://www.ycombinator.com/companies",
         persona=Persona(
-            name="Sarah",
-            bio="Curious researcher interested in web standards and documentation"
+            name="Noah",
+            bio=(
+                "Noah is a 33-year-old angel investor (ex-staff engineer, 2x founder exit) with a $500k allocation this quarter. "
+                "His thesis prioritizes AI (infra + applied), developer tooling (product-led growth, bottom-up adoption), and fintech "
+                "(compliance-forward, clear revenue paths). Noah screens for: recent YC batches (S23+), active hiring signals, early "
+                "traction (paying customers or credible pilots), concise problem statements, and clear links (website, careers, LinkedIn). "
+                "He prefers US/EU time zones for hands-on support, and teams with technical founders who can ship quickly. "
+                "Initial pass criteria: crisp positioning, plausible GTM, and ability to reach $1–3M ARR in 18–24 months. "
+                "Secondary diligence: founder backgrounds (LinkedIn/GitHub), demo walkthroughs, pricing pages, and signs of ICP clarity. "
+                "Goal today: identify a fintech company (Stripe-like or in financial services) on YC’s directory to review in detail."
+            )
         ),
-        ux_question="What information does this site provide?",
+        ux_question=(
+            "On YC’s Companies directory, filter for Fintech startups. "
+            "Scroll through the results and explicitly select one fintech company (for example, Stripe or a similar financial startup). "
+            "Open its YC profile page, review the description, and then click through to its external website. "
+            "Do not remain in browse mode — you must pick one fintech company and go inside its profile. "
+            "Stay on that startup’s YC company page at the end so Noah can capture it for investment notes."
+        ),
         viewport=Viewport.DESKTOP,
-        step_budget=5
+        step_budget=15,
+        max_consecutive_errors=3
     )
-    
+    # Test case 3: Uniqlo shopper finding a specific jacket (replacing Zara)
     test_case_3 = AgentInput(
-    run_id="test_hackernews_startups",
-    url="https://news.ycombinator.com/",
-    persona=Persona(
-        name="Jake",
-        bio=(
-            "Jake is a 30-year-old founder exploring YC-funded startups. "
-            "He's on Hacker News to read trending discussions about new AI companies."
-        )
-    ),
-    ux_question="Find and click on the top AI-related startup post on Hacker News.",
-    viewport=Viewport.DESKTOP,
-    step_budget=15
-)
+        run_id="test_uniqlo_find_jacket",
+        url="https://www.uniqlo.com/",
+        persona=Persona(
+            name="Leila",
+            bio=(
+                "Leila is a 28-year-old product designer who commutes daily and needs a lightweight, packable jacket "
+                "for cool mornings. She prefers clean, minimal sites with clear categories and fast paths to product "
+                "details. Leila wants a black women’s lightweight down jacket, and she needs to quickly verify price, "
+                "available sizes, and nearby store availability before deciding."
+            )
+        ),
+        ux_question=(
+            "On Uniqlo’s website, navigate to Women → Outerwear (or similar), locate a lightweight down jacket in black, "
+            "and open a product detail page. Confirm the price is visible and check size availability (aim for size M). "
+            "If a store availability or pickup option is shown, open it."
+        ),
+        viewport=Viewport.DESKTOP,
+        step_budget=12,
+        max_consecutive_errors=3
+    )
 
     print("Running bug detection and sentiment analysis tests...\n")
     
