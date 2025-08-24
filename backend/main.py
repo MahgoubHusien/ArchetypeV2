@@ -43,6 +43,15 @@ class TranscriptSummaryResponse(BaseModel):
     success_rate: float
     recommendations: List[str]
 
+class AskTheDataRequest(BaseModel):
+    question: str
+    agent_id: Optional[str] = None
+    run_id: Optional[str] = None
+
+class AskTheDataResponse(BaseModel):
+    answer: str
+    context_used: Dict[str, Any]
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Agent API",
@@ -79,10 +88,8 @@ async def run_agent_background(agent_request: AgentRunRequest, run_id: str):
         from agent_worker.models.schemas import AgentInput, Persona, Viewport
         from agent_worker.services.agent_manager import AgentManager
         
-        # Get API key
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise Exception("OPENAI_API_KEY not found")
+        # Get API key from config
+        api_key = settings.OPENAI_API_KEY
         
         # Create agent input with fixed defaults
         agent_input = AgentInput(
@@ -125,10 +132,8 @@ async def generate_llm_summary(agent_id: str) -> Dict[str, Any]:
         import openai
         import json
         
-        # Get API key
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise Exception("OPENAI_API_KEY not found")
+        # Get API key from config
+        api_key = settings.OPENAI_API_KEY
         
         openai.api_key = api_key
         
@@ -417,6 +422,135 @@ async def get_interactions_for_agent(agent_id: UUID, supabase: Client = Depends(
         return [Interaction(**interaction) for interaction in response.data] if response.data else []
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@app.post("/ask-the-data", response_model=AskTheDataResponse)
+async def ask_the_data(request: AskTheDataRequest):
+    """
+    Process user questions about the testing data using OpenAI.
+    Bundles relevant context and sends to OpenAI for analysis.
+    """
+    try:
+        import openai
+        import json
+        import sys
+        from pathlib import Path
+        
+        # Add the parent directory to path to import agent_worker
+        parent_dir = Path(__file__).parent.parent
+        sys.path.insert(0, str(parent_dir))
+        
+        from agent_worker.services.agent_manager import AgentManager
+        
+        # Get API key from config
+        api_key = settings.OPENAI_API_KEY
+        
+        openai.api_key = api_key
+        agent_manager = AgentManager()
+        
+        # Gather context based on what's provided
+        context = {
+            "question": request.question,
+            "agents": [],
+            "runs": []
+        }
+        
+        # If agent_id is provided, get specific agent data
+        if request.agent_id:
+            agent_info = agent_manager.get_agent(request.agent_id)
+            if agent_info:
+                # Get normalized transcript for detailed data
+                normalized_transcript = await agent_manager.get_normalized_transcript(request.agent_id)
+                
+                context["agents"].append({
+                    "agent_id": request.agent_id,
+                    "persona": agent_info["persona_name"],
+                    "url": agent_info.get("actual_url", agent_info["url"]),
+                    "ux_question": agent_info["ux_question"],
+                    "status": agent_info["status"],
+                    "finish_reason": agent_info.get("finish_reason"),
+                    "overall_sentiment": agent_info.get("overall_sentiment"),
+                    "success_rate": agent_info.get("success_rate"),
+                    "total_steps": agent_info.get("total_steps"),
+                    "session_duration": agent_info.get("session_duration_seconds", 0),
+                    "transcript": normalized_transcript if normalized_transcript else None
+                })
+        
+        # If run_id is provided, get all agents for that run
+        elif request.run_id:
+            agents = agent_manager.list_agents_by_run(request.run_id)
+            for agent in agents:
+                context["agents"].append({
+                    "agent_id": agent["agent_id"],
+                    "persona": agent["persona_name"],
+                    "url": agent.get("actual_url", agent["url"]),
+                    "ux_question": agent["ux_question"],
+                    "status": agent["status"],
+                    "finish_reason": agent.get("finish_reason"),
+                    "overall_sentiment": agent.get("overall_sentiment"),
+                    "success_rate": agent.get("success_rate"),
+                    "total_steps": agent.get("total_steps")
+                })
+            context["run_summary"] = {
+                "run_id": request.run_id,
+                "total_agents": len(agents),
+                "average_success_rate": sum(a.get("success_rate", 0) for a in agents) / len(agents) if agents else 0
+            }
+        
+        # If neither is provided, get recent agent data
+        else:
+            recent_agents = agent_manager.list_all_agents()[:10]  # Get last 10 agents
+            for agent in recent_agents:
+                context["agents"].append({
+                    "agent_id": agent["agent_id"],
+                    "persona": agent["persona_name"],
+                    "url": agent.get("actual_url", agent["url"]),
+                    "ux_question": agent["ux_question"],
+                    "status": agent["status"],
+                    "finish_reason": agent.get("finish_reason"),
+                    "overall_sentiment": agent.get("overall_sentiment"),
+                    "success_rate": agent.get("success_rate")
+                })
+        
+        # Create prompt for OpenAI
+        system_prompt = """You are a UX testing data analyst assistant. Answer questions about UX testing sessions based on the provided context.
+Be concise, accurate, and focus on insights that would be valuable for improving user experience.
+If the data doesn't contain enough information to answer the question fully, acknowledge what you can answer and what's missing."""
+        
+        user_prompt = f"""Based on the following UX testing data, please answer this question: {request.question}
+
+CONTEXT DATA:
+{json.dumps(context, indent=2)}
+
+Please provide a clear, helpful answer based on the available data."""
+        
+        # Call OpenAI
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7,
+            max_tokens=1000
+        )
+        
+        answer = response.choices[0].message.content
+        
+        return AskTheDataResponse(
+            answer=answer,
+            context_used={
+                "agent_count": len(context["agents"]),
+                "agent_ids": [a["agent_id"] for a in context["agents"]],
+                "run_id": request.run_id if request.run_id else None,
+                "data_scope": "specific_agent" if request.agent_id else ("run" if request.run_id else "recent_agents")
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process question: {str(e)}")
 
 
 if __name__ == "__main__":

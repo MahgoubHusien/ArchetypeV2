@@ -8,6 +8,9 @@ class Settings:
     SUPABASE_URL: str = "https://szsolezkvaccxqkclrket.supabase.co"
     SUPABASE_ANON_KEY: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6c29lenZrYWNjeHFrY2xya2V0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3MTc3MTYsImV4cCI6MjA3MDI5MzcxNn0.SJmXw6GtXzzAB9eCoFMsNun7aI4pc_CHs-jM0OQffWQ"
     
+    # OpenAI settings
+    OPENAI_API_KEY: str = "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"
+    
     # API settings
     API_TITLE: str = "Persona API"
     API_DESCRIPTION: str = "API for managing personas"
@@ -26,6 +29,8 @@ class Settings:
             raise ValueError("SUPABASE_URL is required")
         if not self.SUPABASE_ANON_KEY:
             raise ValueError("SUPABASE_ANON_KEY is required")
+        if not self.OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY is required")
 
 # Create global settings instance
 settings = Settings()
