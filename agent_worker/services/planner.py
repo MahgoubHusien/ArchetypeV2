@@ -35,6 +35,7 @@ PLANNER_SYSTEM_MESSAGE = """You are an intelligent UX test agent simulating auth
 - Never repeat identical actions on the same element unnecessarily
 - Build upon previous actions to create coherent user journeys
 - Recognize when you're stuck in loops and change strategy
+- **STOP IMMEDIATELY**: Once you have achieved the UX goal or found what the user needs, STOP. Do not continue exploring or taking additional actions.
 
 ## ACTION STRATEGY
 
@@ -45,11 +46,19 @@ PLANNER_SYSTEM_MESSAGE = """You are an intelligent UX test agent simulating auth
 4. **Secondary Exploration**: Scroll for more content, check footers, side navigation
 5. **Error Recovery**: Handle failures gracefully, try alternative approaches
 
+### Goal Achievement & Stopping Conditions
+- **IMMEDIATE STOP**: When you find the information, page, or complete the task the user requested
+- **Success indicators**: Reached target page, found requested information, completed required action
+- **Do NOT**: Continue browsing, exploring additional pages, or taking unnecessary actions after success
+- **Wait action**: Only use when page is loading or you need to observe results, never for exploration
+
 ### Element Targeting Strategy
+- **Use selector_hint first**: Each interactive element has a selector_hint - USE IT whenever possible
 - **Prefer semantic selectors**: Use text content, roles, and ARIA labels
-- **Fallback hierarchy**: text → role+name → data-testid → ID → class
+- **Fallback hierarchy**: selector_hint → text → role+name → data-testid → ID → class
 - **Context awareness**: Consider element's parent context (forms, navigation, etc.)
 - **Accessibility first**: Prioritize elements that screen readers would identify
+- **CRITICAL**: When clicking links or buttons, use the exact text and selector_hint from page_digest.interactives
 
 ### Scrolling Guidelines
 - **General scroll**: `{"type":"scroll"}` - Scrolls 300px down to reveal new content
@@ -79,6 +88,8 @@ PLANNER_SYSTEM_MESSAGE = """You are an intelligent UX test agent simulating auth
 - **very_positive**: Continue current successful path, explore deeper into current area
 
 **If recent actions failed**: Don't repeat the same approach. Try different elements, different actions, or navigate elsewhere.
+
+**STOP CONDITIONS**: If you have achieved the goal (found the information, reached the target page, completed the task), STOP immediately. Do not continue exploring regardless of sentiment.
 
 ## ERROR HANDLING & RECOVERY
 
@@ -159,8 +170,15 @@ Keep explanations concise but informative:
 3. Is this what a real user would reasonably do?
 4. Am I using the most reliable selector strategy?
 5. Is my confidence score realistic?
+6. **CRITICAL CHECK**: Have I already achieved the UX goal? If YES, I should STOP immediately.
 
-Remember: You are testing the user experience, so act like a real user would - with purpose, occasional confusion, realistic patience, and genuine reactions to what you encounter."""
+### Success Recognition
+- **Found the target page**: If you reached the page the user wanted, STOP
+- **Found the information**: If you located the specific content requested, STOP  
+- **Completed the task**: If you finished the required action (contact form, product page, etc.), STOP
+- **Real user behavior**: A real user stops once they get what they need - you should too
+
+Remember: You are testing the user experience, so act like a real user would - with purpose, occasional confusion, realistic patience, and genuine reactions to what you encounter. Most importantly, STOP when you've achieved the goal just like a real user would."""
 
 
 class LLMPlanner:
@@ -209,7 +227,13 @@ class LLMPlanner:
                         "role": el.role,
                         "name": el.name,
                         "text": el.text[:50] if el.text else None,
-                        "selector_hint": el.selector_hint
+                        "selector_hint": el.selector_hint,
+                        "tag_name": el.tag_name,
+                        "element_id": el.element_id,
+                        "class_name": el.class_name,
+                        "href": el.href,
+                        "clickable": el.clickable,
+                        "parent_context": el.parent_context
                     }
                     for el in page_digest.interactives
                 ]
@@ -264,8 +288,18 @@ class LLMPlanner:
             target = None
             if "target" in action_data:
                 target_data = action_data["target"]
+                
+                # Try to find the element in page digest by text or selector
+                selector_hint = None
+                if target_data.get("text"):
+                    # Look for matching element in page digest
+                    for el in page_digest.interactives:
+                        if el.text and target_data["text"].strip().lower() in el.text.lower():
+                            selector_hint = el.selector_hint
+                            break
+                
                 target = ActionTarget(
-                    selector=target_data.get("selector"),
+                    selector=target_data.get("selector") or selector_hint,
                     text=target_data.get("text"),
                     role=target_data.get("role"),
                     name=target_data.get("name")

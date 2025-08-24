@@ -13,6 +13,7 @@ try:
     from .services.planner import LLMPlanner
     from .services.action_executor import ActionExecutor
     from .services.sentiment_analyzer import SentimentAnalyzer
+    from .services.agent_manager import AgentManager
 except ImportError:
     from models.schemas import (
         AgentInput, AgentOutput, Interaction, Session,
@@ -22,18 +23,43 @@ except ImportError:
     from services.planner import LLMPlanner
     from services.action_executor import ActionExecutor
     from services.sentiment_analyzer import SentimentAnalyzer
+    from services.agent_manager import AgentManager
 
 
 class UXAgent:
-    def __init__(self, api_key: str, data_dir: Path = Path("data")):
+    def __init__(self, api_key: str, data_dir: Path = None, agent_manager: Optional[AgentManager] = None):
+        # Use venv-based data directory by default
+        if data_dir is None:
+            import sys
+            venv_path = Path(sys.executable).parent.parent  # From venv/bin/python to venv/
+            self.data_dir = venv_path / "agent_data"
+        else:
+            self.data_dir = data_dir
+            
         self.planner = LLMPlanner(api_key)
-        self.executor = ActionExecutor(data_dir)
+        self.executor = ActionExecutor(self.data_dir)
         self.sentiment_analyzer = SentimentAnalyzer()
-        self.data_dir = data_dir
-        self.agent_id = f"agent_{uuid.uuid4().hex[:6]}"
+        
+        # Use provided agent manager or create a new one (will use venv by default)
+        self.agent_manager = agent_manager or AgentManager()
+        
+        # Agent ID will be set when run is called
+        self.agent_id: Optional[str] = None
     
     async def run(self, input_data: AgentInput) -> AgentOutput:
         """Run the agent through its planning loop."""
+        # Create and register agent with the manager
+        self.agent_id = self.agent_manager.create_agent(
+            run_id=input_data.run_id,
+            persona_name=input_data.persona.name,
+            persona_bio=input_data.persona.bio,
+            url=input_data.url,
+            ux_question=input_data.ux_question
+        )
+        
+        # Update status to running
+        self.agent_manager.update_agent_status(self.agent_id, "running")
+        
         interactions: List[Interaction] = []
         consecutive_errors = 0
         bugs_encountered = 0
@@ -216,7 +242,8 @@ class UXAgent:
                 interactions, input_data.persona.bio, input_data.ux_question
             )
         
-        return AgentOutput(
+        # Build agent output
+        agent_output = AgentOutput(
             agent_id=self.agent_id,
             persona=input_data.persona,
             session=session,
@@ -226,6 +253,30 @@ class UXAgent:
             bugs_encountered=bugs_encountered,
             dropoff_reason=dropoff_reason
         )
+        
+        # Update agent status based on finish reason
+        if finish_reason == FinishReason.SUCCESS:
+            status = "completed"
+        elif finish_reason in [FinishReason.NAV_FAILURE, FinishReason.CONSECUTIVE_ERRORS]:
+            status = "failed"
+        elif finish_reason == FinishReason.USER_DROPOFF:
+            status = "dropped_off"
+        else:
+            status = "stopped"
+        
+        self.agent_manager.update_agent_status(self.agent_id, status)
+        
+        # Associate transcript with agent
+        try:
+            transcript_data = agent_output.model_dump(mode='json')
+            await self.agent_manager.associate_transcript_with_agent(
+                self.agent_id, 
+                transcript_data
+            )
+        except Exception as e:
+            print(f"Warning: Failed to save transcript for agent {self.agent_id}: {e}")
+        
+        return agent_output
     
     async def _launch_browser(self, playwright, viewport: str):
         """Launch browser with appropriate settings."""
@@ -261,6 +312,32 @@ class UXAgent:
     
     def _check_success(self, interactions: List[Interaction], ux_question: str) -> bool:
         """Check if we've successfully answered the UX question."""
-        # For now, always return False to let the agent use its full step budget
-        # The agent will stop when it reaches step_budget or encounters errors
+        if not interactions:
+            return False
+        
+        # Look for success indicators in recent interactions
+        recent_interactions = interactions[-3:]  # Check last 3 steps
+        
+        # Check for success keywords in thoughts and intents
+        success_indicators = [
+            "found", "success", "completed", "achieved", "located", "reached",
+            "exactly what", "this is it", "perfect", "got it", "here it is"
+        ]
+        
+        # Check if the agent expressed satisfaction or completion
+        for interaction in recent_interactions:
+            thought_lower = interaction.thought.lower()
+            intent_lower = interaction.intent.lower()
+            
+            # Check for explicit success expressions
+            for indicator in success_indicators:
+                if indicator in thought_lower or indicator in intent_lower:
+                    return True
+            
+            # Check for very positive sentiment with relevant content
+            if (interaction.sentiment == SentimentLevel.VERY_POSITIVE and 
+                interaction.user_feeling and 
+                "engaged" in interaction.user_feeling.lower()):
+                return True
+        
         return False

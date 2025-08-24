@@ -13,12 +13,17 @@ async def extract_page_digest(page: Page, max_interactives: int = 50) -> PageDig
     title = await page.title()
     url = page.url
     
-    # Wait for page to be fully loaded
+    # Wait for page to be fully loaded and stable
     try:
         await page.wait_for_load_state("domcontentloaded", timeout=3000)
-        await page.wait_for_timeout(500)  # Small delay for dynamic content
+        await page.wait_for_load_state("networkidle", timeout=2000)
+        await page.wait_for_timeout(800)  # Small delay for dynamic content
     except:
-        pass  # Continue even if timeout
+        # Fallback: just wait a bit if the above fails
+        try:
+            await page.wait_for_timeout(1500)
+        except:
+            pass
     
     # Extract headings (H1/H2)
     headings = await page.evaluate("""
@@ -127,45 +132,56 @@ async def extract_page_digest(page: Page, max_interactives: int = 50) -> PageDig
                 return text.substring(0, 100);
             }}
             
-            // Helper function to check if element is truly interactive
-            function isInteractive(el) {{
-                const tag = el.tagName.toLowerCase();
-                const role = el.getAttribute('role');
-                const type = el.getAttribute('type');
-                
-                // Standard interactive elements
-                if (['button', 'a', 'input', 'select', 'textarea'].includes(tag)) {{
-                    return true;
+                            // Helper function to check if element is truly interactive
+                function isInteractive(el) {{
+                    const tag = el.tagName.toLowerCase();
+                    const role = el.getAttribute('role');
+                    const type = el.getAttribute('type');
+                    
+                    // Skip hidden inputs
+                    if (tag === 'input' && type === 'hidden') {{
+                        return false;
+                    }}
+                    
+                    // Standard interactive elements
+                    if (['button', 'a', 'input', 'select', 'textarea'].includes(tag)) {{
+                        return true;
+                    }}
+                    
+                    // Elements with interactive roles
+                    if (role && ['button', 'link', 'tab', 'menuitem', 'option', 'checkbox', 'radio', 'switch'].includes(role)) {{
+                        return true;
+                    }}
+                    
+                    // Elements with click handlers
+                    if (el.onclick || el.getAttribute('onclick')) {{
+                        return true;
+                    }}
+                    
+                    // Elements with tabindex (focusable)
+                    if (el.hasAttribute('tabindex') && el.tabIndex >= 0) {{
+                        return true;
+                    }}
+                    
+                    // Contenteditable elements
+                    if (el.contentEditable === 'true') {{
+                        return true;
+                    }}
+                    
+                    // Check computed style for cursor pointer
+                    const style = window.getComputedStyle(el);
+                    if (style.cursor === 'pointer') {{
+                        return true;
+                    }}
+                    
+                    // Check for common clickable classes
+                    const className = el.className || '';
+                    if (className.includes('btn') || className.includes('button') || className.includes('link') || className.includes('clickable')) {{
+                        return true;
+                    }}
+                    
+                    return false;
                 }}
-                
-                // Elements with interactive roles
-                if (role && ['button', 'link', 'tab', 'menuitem', 'option', 'checkbox', 'radio', 'switch'].includes(role)) {{
-                    return true;
-                }}
-                
-                // Elements with click handlers
-                if (el.onclick || el.getAttribute('onclick')) {{
-                    return true;
-                }}
-                
-                // Elements with tabindex (focusable)
-                if (el.hasAttribute('tabindex') && el.tabIndex >= 0) {{
-                    return true;
-                }}
-                
-                // Contenteditable elements
-                if (el.contentEditable === 'true') {{
-                    return true;
-                }}
-                
-                // Check computed style for cursor pointer
-                const style = window.getComputedStyle(el);
-                if (style.cursor === 'pointer') {{
-                    return true;
-                }}
-                
-                return false;
-            }}
             
             // Helper function to get parent context
             function getParentContext(el) {{
@@ -235,7 +251,11 @@ async def extract_page_digest(page: Page, max_interactives: int = 50) -> PageDig
                 const role = el.getAttribute('role') || el.tagName.toLowerCase();
                 const name = el.getAttribute('name');
                 if (role && name) {{
-                    selectors.push(`${{role}}[name="${{name}}"]`);
+                    if (role === 'a' || role === 'link') {{
+                        selectors.push(`a[name="${{name}}"]`);
+                    }} else {{
+                        selectors.push(`${{role}}[name="${{name}}"]`);
+                    }}
                 }}
                 
                 // Priority 5: Attribute-based selectors
