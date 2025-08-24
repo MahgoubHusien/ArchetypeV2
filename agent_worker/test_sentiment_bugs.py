@@ -40,45 +40,55 @@ async def test_bug_detection():
         max_consecutive_errors=3
     )
     
+    # Test case 2: YC investor scouting startups (detailed persona + goal)
     test_case_2 = AgentInput(
-        run_id="test_bbc_trending_news",
-        url="https://www.bbc.com/",
+        run_id="test_yc_investor_startups",
+        url="https://www.ycombinator.com/companies",
         persona=Persona(
-            name="Samantha",
+            name="Noah",
             bio=(
-                "Samantha is a 34-year-old marketing professional who likes to stay updated on global events "
-                "during her morning coffee. She’s not very technical, prefers simple navigation, and usually "
-                "looks for trending or top news stories without wanting to dig too deep. Samantha values speed, "
-                "clarity, and a straightforward path to headlines."
+                "Noah is a 33-year-old angel investor (ex-staff engineer, 2x founder exit) with a $500k allocation this quarter. "
+                "His thesis prioritizes AI (infra + applied), developer tooling (product-led growth, bottom-up adoption), and fintech "
+                "(compliance-forward, clear revenue paths). Noah screens for: recent YC batches (S23+), active hiring signals, early "
+                "traction (paying customers or credible pilots), concise problem statements, and clear links (website, careers, LinkedIn). "
+                "He prefers US/EU time zones for hands-on support, and teams with technical founders who can ship quickly. "
+                "Initial pass criteria: crisp positioning, plausible GTM, and ability to reach $1–3M ARR in 18–24 months. "
+                "Secondary diligence: founder backgrounds (LinkedIn/GitHub), demo walkthroughs, pricing pages, and signs of ICP clarity. "
+                "Goal today: identify a fintech company (Stripe-like or in financial services) on YC’s directory to review in detail."
             )
         ),
         ux_question=(
-            "Find and click on today’s top trending news story on the BBC homepage so Samantha can quickly read it."
+            "On YC’s Companies directory, filter for Fintech startups. "
+            "Scroll through the results and explicitly select one fintech company (for example, Stripe or a similar financial startup). "
+            "Open its YC profile page, review the description, and then click through to its external website. "
+            "Do not remain in browse mode — you must pick one fintech company and go inside its profile. "
+            "Stay on that startup’s YC company page at the end so Noah can capture it for investment notes."
         ),
         viewport=Viewport.DESKTOP,
-        step_budget=10,
-        max_consecutive_errors=2
+        step_budget=15,
+        max_consecutive_errors=3
     )
-        
+    # Test case 3: Uniqlo shopper finding a specific jacket (replacing Zara)
     test_case_3 = AgentInput(
-        run_id="test_imdb_movie_search",
-        url="https://www.imdb.com/",
+        run_id="test_uniqlo_find_jacket",
+        url="https://www.uniqlo.com/",
         persona=Persona(
-            name="David",
+            name="Leila",
             bio=(
-                "David is a 27-year-old graduate student who loves movies and TV shows. He often checks IMDB "
-                "to read reviews, watch trailers, and see ratings before deciding what to watch. David isn’t very "
-                "technical but is comfortable browsing popular sites. Tonight, he wants to quickly look up a movie "
-                "his friends recommended so he can decide whether it’s worth watching."
+                "Leila is a 28-year-old product designer who commutes daily and needs a lightweight, packable jacket "
+                "for cool mornings. She prefers clean, minimal sites with clear categories and fast paths to product "
+                "details. Leila wants a black women’s lightweight down jacket, and she needs to quickly verify price, "
+                "available sizes, and nearby store availability before deciding."
             )
         ),
         ux_question=(
-            "Search for the movie 'Inception' on IMDB and open its page so David can check the rating, reviews, "
-            "and cast information."
+            "On Uniqlo’s website, navigate to Women → Outerwear (or similar), locate a lightweight down jacket in black, "
+            "and open a product detail page. Confirm the price is visible and check size availability (aim for size M). "
+            "If a store availability or pickup option is shown, open it."
         ),
         viewport=Viewport.DESKTOP,
         step_budget=12,
-        max_consecutive_errors=2
+        max_consecutive_errors=3
     )
 
     print("Running bug detection and sentiment analysis tests...\n")

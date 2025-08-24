@@ -47,7 +47,10 @@ class SentimentAnalyzer:
     ) -> Tuple[SentimentLevel, Optional[str]]:
         """Analyze user sentiment based on recent interactions."""
         if not interactions:
-            return SentimentLevel.NEUTRAL, None
+            if current_step == 1:
+                return SentimentLevel.NEUTRAL, "Starting fresh, ready to explore"
+            else:
+                return SentimentLevel.NEUTRAL, None
             
         recent_interactions = interactions[-5:]  # Look at last 5 interactions
         

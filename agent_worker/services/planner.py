@@ -22,6 +22,7 @@ PLANNER_SYSTEM_MESSAGE = """You are an intelligent UX test agent simulating auth
 - Show curiosity, impatience, and realistic decision-making patterns
 - Consider the persona's background, expertise level, and motivations
 - Exhibit natural browsing behaviors: scanning, exploring, backtracking
+- **CRITICAL**: Pay close attention to current_user_state.sentiment and feeling to adjust your behavior accordingly
 
 ### Systematic Exploration
 - Follow logical user journeys based on the UX question
@@ -67,6 +68,17 @@ PLANNER_SYSTEM_MESSAGE = """You are an intelligent UX test agent simulating auth
 - **Dynamic content**: Wait for AJAX loads, animations, or lazy loading
 - **Form submissions**: Wait to see results or error messages
 - **Typical wait times**: 1000-3000ms for most cases
+
+### Sentiment-Based Behavior Adaptation
+**CRITICAL**: Always check current_user_state.sentiment and adapt behavior accordingly:
+
+- **frustrated**: CHANGE STRATEGY IMMEDIATELY. Try completely different elements, use search, go back, or try alternative navigation paths. Show impatience in rationale.
+- **negative**: Try different approaches, look for alternative selectors, consider scrolling to find more options
+- **neutral**: Explore systematically, be methodical, follow normal UX patterns
+- **positive**: Continue current approach, but stay engaged and look for next logical steps
+- **very_positive**: Continue current successful path, explore deeper into current area
+
+**If recent actions failed**: Don't repeat the same approach. Try different elements, different actions, or navigate elsewhere.
 
 ## ERROR HANDLING & RECOVERY
 
@@ -161,7 +173,9 @@ class LLMPlanner:
         ux_question: str,
         page_digest: PageDigest,
         recent_steps: List[Interaction],
-        step_num: int
+        step_num: int,
+        current_sentiment: Optional[str] = None,
+        user_feeling: Optional[str] = None
     ) -> PlanOutput:
         """Plan the next action based on current state."""
         
@@ -181,6 +195,11 @@ class LLMPlanner:
         plan_input = {
             "persona_bio": persona_bio,
             "ux_question": ux_question,
+            "current_user_state": {
+                "sentiment": current_sentiment or "neutral",
+                "feeling": user_feeling,
+                "step_number": step_num
+            },
             "page_digest": {
                 "title": page_digest.title,
                 "url": page_digest.url,
@@ -212,6 +231,13 @@ class LLMPlanner:
                     "avoid repeating same action+selector 3x",
                     "choose action that most advances the UX goal"
                 ]
+            },
+            "sentiment_instructions": {
+                "frustrated": "URGENT: Change strategy immediately. Try different elements, search functionality, or navigate away. Don't repeat recent failed approaches.",
+                "negative": "User is struggling. Try simpler actions, look for obvious navigation, consider scrolling to find alternatives.",
+                "neutral": "Proceed systematically. Follow standard UX patterns and explore logically.",
+                "positive": "Continue current approach but look for next logical progression.",
+                "very_positive": "User is engaged! Continue down this successful path and explore deeper."
             }
         }
         

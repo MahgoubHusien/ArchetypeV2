@@ -119,9 +119,9 @@ class PageElement(BaseModel):
     alt: Optional[str] = None
     position: Optional[Dict[str, float]] = None  # x, y, width, height
     parent_context: Optional[str] = None
-    clickable: bool = False
-    focusable: bool = False
-    form_field: bool = False
+    clickable: Optional[bool] = False
+    focusable: Optional[bool] = False
+    form_field: Optional[bool] = False
 
 
 class PageDigest(BaseModel):

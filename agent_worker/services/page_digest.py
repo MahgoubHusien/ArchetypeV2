@@ -315,9 +315,9 @@ async def extract_page_digest(page: Page, max_interactives: int = 50) -> PageDig
                         height: Math.round(rect.height)
                     }} : null,
                     parent_context: getParentContext(el),
-                    clickable: ['button', 'a'].includes(tag) || el.onclick || el.getAttribute('onclick') || style.cursor === 'pointer',
-                    focusable: el.tabIndex >= 0 || ['input', 'select', 'textarea', 'button', 'a'].includes(tag),
-                    form_field: ['input', 'select', 'textarea'].includes(tag),
+                    clickable: (['button', 'a'].includes(tag) || el.onclick || el.getAttribute('onclick') || style.cursor === 'pointer') || false,
+                    focusable: (el.tabIndex >= 0 || ['input', 'select', 'textarea', 'button', 'a'].includes(tag)) || false,
+                    form_field: ['input', 'select', 'textarea'].includes(tag) || false,
                     selector_hint: createRobustSelector(el)
                 }};
                 
