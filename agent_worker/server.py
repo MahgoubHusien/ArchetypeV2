@@ -2,6 +2,7 @@ import os
 import asyncio
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List
@@ -14,6 +15,24 @@ from utils.storage import TranscriptStorage
 load_dotenv()
 
 app = FastAPI(title="Agent Worker API")
+
+# Add CORS middleware for Vercel frontend and Render
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://test-persona-hub.vercel.app",  # Your Vercel frontend
+        "https://preview--test-persona-hub.lovable.app",
+        "https://lovable.app",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://*.onrender.com",  # Allow all Render domains
+        "https://archetype-backend.onrender.com",
+        "https://archetype-agent-worker.onrender.com"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Mount static files for screenshots
 app.mount("/static", StaticFiles(directory="static"), name="static")
