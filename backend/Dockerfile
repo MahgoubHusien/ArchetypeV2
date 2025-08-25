@@ -26,12 +26,12 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p agent_worker/static
 
-# Expose port
+# Expose port (will be overridden by Render)
 EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:$PORT/health || exit 1
 
 # Run the application
-CMD ["gunicorn", "main:app", "-b", "0.0.0.0:8000", "--workers", "1", "--worker-class", "uvicorn.workers.UvicornWorker"]
+CMD ["gunicorn", "main:app", "-b", "0.0.0.0:$PORT", "--workers", "1", "--worker-class", "uvicorn.workers.UvicornWorker"]
