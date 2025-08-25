@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  agent-worker:
+    build:
+      context: ./agent_worker
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./agent_worker:/app
+      - /app/__pycache__
+      - ./agent_worker/static:/app/static
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+networks:
+  default:
+    name: archetype-network

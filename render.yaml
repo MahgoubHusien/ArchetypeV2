@@ -1,0 +1,43 @@
+services:
+  # Backend API Service
+  - type: web
+    name: archetype-backend
+    env: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: PORT
+        value: 8000
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - backend/**
+        - requirements.txt
+        - agent_worker/**
+
+  # Agent Worker Service
+  - type: web
+    name: archetype-agent-worker
+    env: docker
+    plan: free
+    dockerfilePath: ./agent_worker/Dockerfile
+    dockerContext: ./agent_worker
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PORT
+        value: 8001
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - agent_worker/**
+        - requirements.txt

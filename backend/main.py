@@ -60,14 +60,17 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware for lovable.dev
+# Add CORS middleware for lovable.dev and Render
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://preview--test-persona-hub.lovable.app",
         "https://lovable.app",
         "http://localhost:3000",
-        "http://localhost:5173"
+        "http://localhost:5173",
+        "https://*.onrender.com",  # Allow all Render domains
+        "https://archetype-backend.onrender.com",
+        "https://archetype-agent-worker.onrender.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -665,4 +668,6 @@ Please provide a clear, helpful answer based on the available data."""
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
