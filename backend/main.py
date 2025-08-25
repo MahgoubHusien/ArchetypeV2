@@ -457,7 +457,15 @@ async def list_agents(run_id: Optional[str] = None, status: Optional[str] = None
         parent_dir = Path(__file__).parent.parent
         sys.path.insert(0, str(parent_dir))
         
-        from agent_worker.services.agent_manager import AgentManager
+        try:
+            from agent_worker.services.agent_manager import AgentManager
+        except ImportError as import_error:
+            return {
+                "total": 0,
+                "agents": [],
+                "message": "Agent manager not available yet",
+                "error": str(import_error)
+            }
         
         agent_manager = AgentManager()
         
@@ -474,7 +482,17 @@ async def list_agents(run_id: Optional[str] = None, status: Optional[str] = None
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to list agents: {str(e)}")
+        # Log the full error for debugging
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error in /agents endpoint: {error_details}")
+        
+        return {
+            "total": 0,
+            "agents": [],
+            "error": f"Failed to list agents: {str(e)}",
+            "details": error_details
+        }
 
 
 @app.options("/runs")
