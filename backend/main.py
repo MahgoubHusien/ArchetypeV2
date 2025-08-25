@@ -42,6 +42,7 @@ class TranscriptSummaryResponse(BaseModel):
     user_sentiment: str
     success_rate: float
     recommendations: List[str]
+    transcript: Optional[Dict[str, Any]] = None
 
 class AskTheDataRequest(BaseModel):
     question: str
@@ -145,8 +146,10 @@ async def generate_llm_summary(agent_id: str) -> Dict[str, Any]:
         
         openai.api_key = api_key
         
-        # Get agent data
-        agent_manager = AgentManager()
+        # Get agent data - specify the correct data directory
+        venv_path = Path(sys.executable).parent.parent  # From venv/bin/python to venv/
+        data_dir = venv_path / "agent_data"
+        agent_manager = AgentManager(data_dir)
         agent_info = agent_manager.get_agent(agent_id)
         normalized_transcript = await agent_manager.get_normalized_transcript(agent_id)
         
@@ -363,11 +366,17 @@ async def get_agent_summary(request: TranscriptSummaryRequest):
         
         from agent_worker.services.agent_manager import AgentManager
         
-        agent_manager = AgentManager()
+        # Specify the correct data directory
+        venv_path = Path(sys.executable).parent.parent  # From venv/bin/python to venv/
+        data_dir = venv_path / "agent_data"
+        agent_manager = AgentManager(data_dir)
         agent_info = agent_manager.get_agent(request.agent_id)
         
         if not agent_info:
             raise HTTPException(status_code=404, detail=f"Agent {request.agent_id} not found")
+        
+        # Get the normalized transcript for the frontend
+        normalized_transcript = await agent_manager.get_normalized_transcript(request.agent_id)
         
         return TranscriptSummaryResponse(
             agent_id=request.agent_id,
@@ -375,7 +384,8 @@ async def get_agent_summary(request: TranscriptSummaryRequest):
             key_insights=analysis.get("key_insights", []),
             user_sentiment=analysis.get("user_sentiment", agent_info.get("overall_sentiment", "unknown")),
             success_rate=agent_info.get("success_rate", 0.0),
-            recommendations=analysis.get("recommendations", [])
+            recommendations=analysis.get("recommendations", []),
+            transcript=normalized_transcript
         )
         
     except HTTPException:
