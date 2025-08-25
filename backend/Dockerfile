@@ -33,5 +33,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:$PORT/health || exit 1
 
-# Run the application
-CMD ["gunicorn", "main:app", "-b", "0.0.0.0:$PORT", "--workers", "1", "--worker-class", "uvicorn.workers.UvicornWorker"]
+# Run the application - use shell form so $PORT expands properly
+CMD ["sh", "-c", "gunicorn main:app -k uvicorn.workers.UvicornWorker --workers 1 --timeout 120 --bind 0.0.0.0:$PORT"]
